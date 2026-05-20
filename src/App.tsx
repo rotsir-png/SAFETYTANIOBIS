@@ -125,7 +125,14 @@ useEffect(() => {
       unlockNextStage(stage);
       refreshProgress();
       const p = getProfile();
-      if (p) recordStageClear(p, stage, score).catch(() => {});
+
+if (p) {
+  recordStageClear(p, stage, score).catch((err) => {
+    console.error('[StageClear] failed', { stage, score, err });
+  });
+} else {
+  console.warn('[StageClear] no profile', { stage, score });
+}
     }
   
     setResult({ score, stage, passed, passScore });
@@ -135,18 +142,19 @@ useEffect(() => {
 
   const handleEndlessComplete = useCallback((score: number, highScore: number) => {
     setResult({ score, stage: 'endless', passed: true, highScore });
-    const p = getProfile();
-
-if (p) {
-  console.log('[StageClear] saving', { profile: p, stage, score });
-
-  recordStageClear(p, stage, score)
-    .then(() => console.log('[StageClear] saved'))
-    .catch((err) => console.error('[StageClear] failed', err));
-} else {
-  console.warn('[StageClear] no profile');
-}
     setScreen('result');
+  
+    const p = getProfile();
+  
+    if (p) {
+      console.log('[EndlessComplete] saving', { profile: p, score, highScore });
+  
+      recordEndlessScore(p, score)
+        .then(() => console.log('[EndlessComplete] saved'))
+        .catch((err) => console.error('[EndlessComplete] failed', err));
+    } else {
+      console.warn('[EndlessComplete] no profile');
+    }
   }, []);
 
   const handleRetry = useCallback(() => {
