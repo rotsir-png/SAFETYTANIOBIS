@@ -35,23 +35,49 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const correctSfx = useRef(new Audio('/sfx/correct.wav'));
 const wrongSfx = useRef(new Audio('/sfx/wrong.wav'));
 const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
-  const { popups, showPopup } = useScorePopup();
-  const { paused, togglePause, PauseOverlay } = usePause({
-    onGiveUp: () => {
-      if (doneRef.current) return;
-      doneRef.current = true;
-      onComplete(0);
-    },
-  });
 
-  const startXRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const processingRef = useRef(false);
-  const scoreRef = useRef(0);
-  const pausedRef = useRef(false);
+const startXRef = useRef(0);
+const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+const processingRef = useRef(false);
+const scoreRef = useRef(0);
+const pausedRef = useRef(false);
 const doneRef = useRef(false);
+const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const isPanicMode = timeLeft <= 10;
+const safeTimeout = useCallback((fn: () => void, delay: number) => {
+  const id = setTimeout(() => {
+    timeoutsRef.current = timeoutsRef.current.filter((x) => x !== id);
+
+    if (!doneRef.current) {
+      fn();
+    }
+  }, delay);
+
+  timeoutsRef.current.push(id);
+  return id;
+}, []);
+
+const { popups, showPopup } = useScorePopup();
+
+const { paused, togglePause, PauseOverlay } = usePause({
+  onGiveUp: () => {
+    if (doneRef.current) return;
+
+    doneRef.current = true;
+    processingRef.current = true;
+
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+
+    onComplete(0);
+  },
+});
+const isPanicMode = timeLeft <= 10;
 
   useEffect(() => {
     pausedRef.current = paused;
@@ -62,65 +88,88 @@ const doneRef = useRef(false);
     perfectSfx.current.volume = 0.7;
   }, []);
   useEffect(() => {
+    if (showIntro || doneRef.current) return;
+  
     timerRef.current = setInterval(() => {
-      if (pausedRef.current || showIntro) return;
-
-      setTimeLeft(t => {
+      if (pausedRef.current || doneRef.current) return;
+  
+      setTimeLeft((t) => {
         if (t <= 0.05) {
-          clearInterval(timerRef.current!);
-        
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+  
           if (!doneRef.current) {
             doneRef.current = true;
+            processingRef.current = true;
+  
+            timeoutsRef.current.forEach(clearTimeout);
+            timeoutsRef.current = [];
+  
             onComplete(scoreRef.current);
           }
-        
+  
           return 0;
         }
-
+  
         return t - 0.05;
       });
     }, 50);
-
-    return () => clearInterval(timerRef.current!);
+  
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+  
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+    };
   }, [onComplete, showIntro]);
   const clearStage = useCallback((finalScore: number) => {
     if (doneRef.current) return;
   
     doneRef.current = true;
-  
-    perfectSfx.current.currentTime = 0;
-    playSfx(perfectSfx.current);
-  
-    setFlashType('perfect');
-    setImpactType('perfect');
-  
-    showPopup('STAGE CLEAR!', '#facc15', 50, 42);
-  
-    setTimeout(() => {
-      onComplete(finalScore);
-    }, 750);
-  }, [onComplete, showPopup]);
-  const handleSwipe = useCallback((direction: 'left' | 'right', swipePower = 0) => {
-    if (processingRef.current || pausedRef.current) return;
-
     processingRef.current = true;
-
+  
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  
+    onComplete(finalScore);
+  }, [onComplete]);
+  const handleSwipe = useCallback((direction: 'left' | 'right', swipePower = 0) => {
+    if (processingRef.current || pausedRef.current || doneRef.current) return;
+  
+    processingRef.current = true;
+  
     const card = cards[cardIndex % cards.length];
     const isCorrect = direction === 'right' ? card.isSafe : !card.isSafe;
     const isPerfect = swipePower >= PERFECT_THRESHOLD;
-
+  
     if (isCorrect) {
-      
       const ns = scoreRef.current + POINTS_CORRECT;
       scoreRef.current = ns;
       setScore(ns);
+  
       if (ns >= CLEAR_SCORE) {
         clearStage(ns);
         return;
       }
+  
       setImpactType(isPerfect ? 'perfect' : 'correct');
-      setTimeout(() => setImpactType(null), 350);
+  
+      safeTimeout(() => {
+        setImpactType(null);
+      }, 350);
+  
       if (isPerfect) {
+        perfectSfx.current.currentTime = 0;
         playSfx(perfectSfx.current);
         setFlashType('perfect');
         showPopup(`PERFECT +${POINTS_CORRECT}`, '#facc15', 50, 50);
@@ -134,39 +183,63 @@ const doneRef = useRef(false);
       const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
       scoreRef.current = ns;
       setScore(ns);
+  
+      wrongSfx.current.currentTime = 0;
       playSfx(wrongSfx.current);
+  
       setImpactType('wrong');
       setScreenShake(true);
-      
       setHitStop(true);
-setTimeout(() => setHitStop(false), 120);
-showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
-      setTimeout(() => setScreenShake(false), 400);
+  
+      safeTimeout(() => {
+        setHitStop(false);
+      }, 120);
+  
+      safeTimeout(() => {
+        setScreenShake(false);
+      }, 400);
+  
+      showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
     }
-
+  
     setCardAnim(direction === 'right' ? 'out-right' : 'out-left');
-    setTimeout(() => setFlashType(null), 300);
-
-    setTimeout(() => {
+  
+    safeTimeout(() => {
+      setFlashType(null);
+    }, 300);
+  
+    safeTimeout(() => {
+      if (doneRef.current) return;
+  
       setDragX(0);
-      setCardIndex(i => i + 1);
+      setCardIndex((i) => i + 1);
       setCardAnim('in');
       processingRef.current = false;
     }, isPanicMode ? 170 : 220);
-  }, [cards, cardIndex, showPopup, isPanicMode, clearStage]);
+  }, [cards, cardIndex, showPopup, isPanicMode, clearStage, safeTimeout]);
 
   const triggerNearMiss = useCallback(() => {
+    if (doneRef.current) return;
+  
     setNearMissShake(true);
     showPopup('เกือบแล้ว!', '#fb923c', 50, 60);
-
-    setTimeout(() => {
+  
+    safeTimeout(() => {
+      if (doneRef.current) return;
+  
       setNearMissShake(false);
       setDragX(0);
     }, 250);
-  }, [showPopup]);
+  }, [showPopup, safeTimeout]);
 
   const finishDrag = useCallback(() => {
-    if (processingRef.current || pausedRef.current) return;
+    if (
+      processingRef.current ||
+      pausedRef.current ||
+      doneRef.current
+    ) {
+      return;
+    }
 
     setIsDragging(false);
     setHint(null);
@@ -226,8 +299,7 @@ showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
     <>
       {showIntro && (
   <div
-    onClick={() => setShowIntro(false)}
-    onTouchStart={() => setShowIntro(false)}
+  onPointerUp={() => setShowIntro(false)}
     className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
   >
           <div
@@ -539,8 +611,7 @@ letterSpacing: '0.01em',
 
       <div className="flex-shrink-0 px-4 pb-6 flex gap-3">
       <button
-  onTouchEnd={() => handleSwipe('left')}
-  onClick={() => handleSwipe('left')}
+  onPointerUp={() => handleSwipe('left')}
   className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
   style={{
     background: 'linear-gradient(135deg, #ef4444, #991b1b)',
@@ -570,8 +641,7 @@ letterSpacing: '0.01em',
 </button>
 
 <button
-  onTouchEnd={() => handleSwipe('right')}
-  onClick={() => handleSwipe('right')}
+  onPointerUp={() => handleSwipe('right')}
   className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
   style={{
     background: 'linear-gradient(135deg, #22c55e, #14532d)',
