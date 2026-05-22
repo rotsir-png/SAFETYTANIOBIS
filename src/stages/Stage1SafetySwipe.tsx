@@ -15,7 +15,7 @@ function shuffle<T>(arr: T[]): T[] {
 const SWIPE_THRESHOLD = 80;
 const PERFECT_THRESHOLD = 140;
 const NEAR_MISS_THRESHOLD = 45;
-const CLEAR_SCORE = 300;
+const CLEAR_SCORE = 300; 
 
 export default function Stage1SafetySwipe({ onComplete }: Props) {
   const [cards] = useState(() => shuffle(swipeCards));
