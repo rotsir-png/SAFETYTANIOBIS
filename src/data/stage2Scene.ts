@@ -35,12 +35,21 @@ import {
       OBJECTS.filter((o) => o.type === "UC" && o.id !== "exit_blocked")
     );
   
-    const picked: SafetyObject[] = shuffle([
-      pickedExit,
-      ...safePool.slice(0, 2),
-      ...uaPool.slice(0, 2),
-      ...ucPool.slice(0, 1),
-    ]);
+    const hazardCount = rand(5, 7);
+
+const uaCount = rand(2, 4);
+const ucCount = hazardCount - uaCount;
+
+const picked: SafetyObject[] = shuffle([
+  pickedExit,
+
+  // SAFE decoy
+  ...safePool.slice(0, rand(1, 2)),
+
+  // HAZARDS
+  ...uaPool.slice(0, uaCount),
+  ...ucPool.slice(0, ucCount),
+]);
   
     const placed: { x: number; y: number; w: number; h: number }[] = [];
     const result: SceneObject[] = [];
@@ -61,10 +70,10 @@ import {
       let best = slots[index % slots.length];
       let found = false;
   
-      for (let i = 0; i < 50; i++) {
+      for (let i = 0; i < 180; i++) {
         const base = slots[rand(0, slots.length - 1)];
-        const x = base.x + rand(-4, 4);
-        const y = base.y + rand(-3, 3);
+        const x = base.x + rand(-10, 10);
+const y = base.y + rand(-8, 8);
         const box = { x, y, w: fp.w, h: fp.h };
   
         if (!placed.some((p) => isOverlapping(box, p))) {
@@ -85,9 +94,9 @@ import {
       }
   
       const baseScale =
-        obj.type === "SAFE"
-          ? rand(125, 145) / 100
-          : rand(145, 165) / 100;
+  obj.type === "SAFE"
+    ? rand(150, 170) / 100
+    : rand(180, 210) / 100;
   
       result.push({
         ...obj,
@@ -98,6 +107,5 @@ import {
         size: obj.size * baseScale,
       });
     });
-  
     return result;
   }

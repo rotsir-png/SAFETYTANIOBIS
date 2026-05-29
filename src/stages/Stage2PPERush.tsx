@@ -12,8 +12,8 @@ interface Props {
 }
 
 const GAME_DURATION = 90;
-const CLEAR_SCORE = 300;
-const POINTS_CORRECT = 50;
+const CLEAR_SCORE = 500;
+const POINTS_CORRECT = 20;
 const POINTS_WRONG = -20;
 export default function InspectGridPrototype({ onComplete }: Props) {
   const [showIntro, setShowIntro] = useState(true);
@@ -145,11 +145,6 @@ setTimeout(() => {
     prev.filter((id) => id !== selected.uid)
   );
 }, 180);
-
-      if (ns >= CLEAR_SCORE) {
-        clearStage(ns);
-        return;
-      }
     } else {
       const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
       scoreRef.current = ns;
@@ -221,7 +216,7 @@ setTimeout(() => {
           ${isPanicMode ? "panic-mode" : ""}
         `}
       >
-        <ScorePopupLayer popups={popups} />
+
 
         {flashType && (
           <div
@@ -313,8 +308,8 @@ setTimeout(() => {
                 }}
               >
                 {score >= CLEAR_SCORE
-                  ? "🚨 ผ่านแล้ว!"
-                  : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
+  ? "🚨 คะแนนผ่านแล้ว เล่นต่อเพื่อทำคะแนนเพิ่ม!"
+  : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
               </span>
             </div>
           </div>
@@ -500,58 +495,57 @@ setTimeout(() => {
   style={{
     left: `${obj.x}%`,
     top: `${obj.y}%`,
-    width: obj.size,
-    height: obj.size,
-    transform: `translate(-50%, -50%) ${
-      isPanicMode ? "scale(1.04)" : "scale(1)"
-    }`,
-    zIndex: selected?.uid === obj.uid ? 50 : 10 + Math.round(obj.y),
+  
+    width:
+      obj.size *
+      (obj.spawn === "HUMAN"
+        ? 0.5
+        : obj.spawn === "GROUND"
+        ? 0.75
+        : 0.58),
+  
+    height:
+      obj.size *
+      (obj.spawn === "HUMAN"
+        ? 0.72
+        : obj.spawn === "GROUND"
+        ? 0.55
+        : 0.68),
+  
+    transform: `translate(-50%, -50%) scale(${
+      selected?.uid === obj.uid
+        ? 1.22
+        : isPanicMode
+        ? 1.04
+        : 1
+    })`,
+  
+    zIndex:
+      selected?.uid === obj.uid
+        ? 999
+        : 10 + Math.round(obj.y),
   }}
 >
-  {/* SMALLER HITBOX */}
-  <div
-    className="
-      absolute
-      left-1/2
-      top-1/2
-      -translate-x-1/2
-      -translate-y-1/2
-    "
-    style={{
-      width:
-        obj.size *
-        (obj.spawn === "HUMAN"
-          ? 0.62
-          : obj.spawn === "GROUND"
-          ? 0.82
-          : 0.72),
-
-      height:
-        obj.size *
-        (obj.spawn === "HUMAN"
-          ? 0.62
-          : obj.spawn === "GROUND"
-          ? 0.82
-          : 0.72),
-    }}
-  />
-
   {/* IMAGE */}
   <img
-    src={obj.image}
-    alt={obj.label}
-    draggable={false}
-    className="
-      absolute
-      inset-0
-      w-full
-      h-full
-      overflow-visible
-      object-contain
-      pointer-events-none
-      select-none
-    "
-  />
+  src={obj.image}
+  alt={obj.label}
+  draggable={false}
+  className="
+    absolute
+    left-1/2
+    top-1/2
+    object-contain
+    pointer-events-none
+    select-none
+  "
+  style={{
+    width: obj.size,
+    height: obj.size,
+    maxWidth: "none",
+    transform: "translate(-50%, -50%)",
+  }}
+/>
 
 </button>
       );
@@ -626,6 +620,9 @@ setTimeout(() => {
     </div>
   </div>
 )}
+<div className="fixed inset-0 z-[9998] pointer-events-none">
+  <ScorePopupLayer popups={popups} />
+</div>
 <div className="relative z-[99999]">
   {PauseOverlay}
 </div>
