@@ -10,7 +10,6 @@ import CampaignScreen from './screens/CampaignScreen';
 import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
-import Stage2PPERush from './stages/Stage2PPERush';
 import Stage3TapHazard from './stages/Stage3TapHazard';
 import Stage4ClawMachine from './stages/Stage4ClawMachine';
 import Stage5HazardDefense from './stages/Stage5HazardDefense';

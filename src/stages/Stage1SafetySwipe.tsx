@@ -4,8 +4,16 @@ import ScorePopupLayer, { useScorePopup } from '../components/ScorePopup';
 import PauseButton, { usePause } from '../components/PauseButton';
 import { swipeCards, GAME_DURATION, POINTS_CORRECT, POINTS_WRONG } from '../gameData';
 import { playSfx } from '../sound';
+
 interface Props {
   onComplete: (score: number) => void;
+}
+
+interface SwipeCard {
+  id: number;
+  label: string;
+  emoji: string;
+  isSafe: boolean;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -15,7 +23,7 @@ function shuffle<T>(arr: T[]): T[] {
 const SWIPE_THRESHOLD = 80;
 const PERFECT_THRESHOLD = 140;
 const NEAR_MISS_THRESHOLD = 45;
-const CLEAR_SCORE = 300; 
+const CLEAR_SCORE = 300;
 
 export default function Stage1SafetySwipe({ onComplete }: Props) {
   const [cards] = useState(() => shuffle(swipeCards));
@@ -32,142 +40,148 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [hint, setHint] = useState<'right' | 'left' | null>(null);
+
   const correctSfx = useRef(new Audio('/sfx/correct.wav'));
-const wrongSfx = useRef(new Audio('/sfx/wrong.wav'));
-const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
+  const wrongSfx = useRef(new Audio('/sfx/wrong.wav'));
+  const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
 
-const startXRef = useRef(0);
-const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-const processingRef = useRef(false);
-const scoreRef = useRef(0);
-const pausedRef = useRef(false);
-const doneRef = useRef(false);
-const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const startXRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const processingRef = useRef(false);
+  const scoreRef = useRef(0);
+  const pausedRef = useRef(false);
+  const doneRef = useRef(false);
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-const safeTimeout = useCallback((fn: () => void, delay: number) => {
-  const id = setTimeout(() => {
-    timeoutsRef.current = timeoutsRef.current.filter((x) => x !== id);
+  const { popups, showPopup } = useScorePopup();
 
-    if (!doneRef.current) {
-      fn();
-    }
-  }, delay);
+  const safeTimeout = useCallback((fn: () => void, delay: number) => {
+    const id = setTimeout(() => {
+      timeoutsRef.current = timeoutsRef.current.filter((x) => x !== id);
 
-  timeoutsRef.current.push(id);
-  return id;
-}, []);
+      if (!doneRef.current) {
+        fn();
+      }
+    }, delay);
 
-const { popups, showPopup } = useScorePopup();
+    timeoutsRef.current.push(id);
+    return id;
+  }, []);
 
-const { paused, togglePause, PauseOverlay } = usePause({
-  onGiveUp: () => {
-    if (doneRef.current) return;
+  const { paused, togglePause, PauseOverlay } = usePause({
+    onGiveUp: () => {
+      if (doneRef.current) return;
 
-    doneRef.current = true;
-    processingRef.current = true;
+      doneRef.current = true;
+      processingRef.current = true;
 
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
 
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
 
-    onComplete(0);
-  },
-});
-const isPanicMode = timeLeft <= 10;
+      onComplete(0);
+    },
+  });
+
+  const isPanicMode = timeLeft <= 10;
 
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+
   useEffect(() => {
     correctSfx.current.volume = 0.5;
     wrongSfx.current.volume = 0.6;
     perfectSfx.current.volume = 0.7;
   }, []);
+
   useEffect(() => {
     if (showIntro || doneRef.current) return;
-  
+
     timerRef.current = setInterval(() => {
       if (pausedRef.current || doneRef.current) return;
-  
+
       setTimeLeft((t) => {
         if (t <= 0.05) {
           if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
-  
+
           if (!doneRef.current) {
             doneRef.current = true;
             processingRef.current = true;
-  
+
             timeoutsRef.current.forEach(clearTimeout);
             timeoutsRef.current = [];
-  
+
             onComplete(scoreRef.current);
           }
-  
+
           return 0;
         }
-  
+
         return t - 0.05;
       });
     }, 50);
-  
+
     return () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-  
+
       timeoutsRef.current.forEach(clearTimeout);
       timeoutsRef.current = [];
     };
   }, [onComplete, showIntro]);
+
   const clearStage = useCallback((finalScore: number) => {
     if (doneRef.current) return;
-  
+
     doneRef.current = true;
     processingRef.current = true;
-  
+
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  
+
     timeoutsRef.current.forEach(clearTimeout);
     timeoutsRef.current = [];
-  
+
     onComplete(finalScore);
   }, [onComplete]);
+
   const handleSwipe = useCallback((direction: 'left' | 'right', swipePower = 0) => {
     if (processingRef.current || pausedRef.current || doneRef.current) return;
-  
+
     processingRef.current = true;
-  
+
     const card = cards[cardIndex % cards.length];
     const isCorrect = direction === 'right' ? card.isSafe : !card.isSafe;
     const isPerfect = swipePower >= PERFECT_THRESHOLD;
-  
+
     if (isCorrect) {
       const ns = scoreRef.current + POINTS_CORRECT;
       scoreRef.current = ns;
       setScore(ns);
-  
+
       if (ns >= CLEAR_SCORE) {
         clearStage(ns);
         return;
       }
-  
+
       setImpactType(isPerfect ? 'perfect' : 'correct');
-  
+
       safeTimeout(() => {
         setImpactType(null);
       }, 350);
-  
+
       if (isPerfect) {
         perfectSfx.current.currentTime = 0;
         playSfx(perfectSfx.current);
@@ -183,34 +197,29 @@ const isPanicMode = timeLeft <= 10;
       const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
       scoreRef.current = ns;
       setScore(ns);
-  
+
       wrongSfx.current.currentTime = 0;
       playSfx(wrongSfx.current);
-  
+
       setImpactType('wrong');
       setScreenShake(true);
       setHitStop(true);
-  
-      safeTimeout(() => {
-        setHitStop(false);
-      }, 120);
-  
-      safeTimeout(() => {
-        setScreenShake(false);
-      }, 400);
-  
+
+      safeTimeout(() => setHitStop(false), 120);
+      safeTimeout(() => setScreenShake(false), 400);
+
       showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
     }
-  
+
     setCardAnim(direction === 'right' ? 'out-right' : 'out-left');
-  
+
     safeTimeout(() => {
       setFlashType(null);
     }, 300);
-  
+
     safeTimeout(() => {
       if (doneRef.current) return;
-  
+
       setDragX(0);
       setCardIndex((i) => i + 1);
       setCardAnim('in');
@@ -220,26 +229,20 @@ const isPanicMode = timeLeft <= 10;
 
   const triggerNearMiss = useCallback(() => {
     if (doneRef.current) return;
-  
+
     setNearMissShake(true);
     showPopup('เกือบแล้ว!', '#fb923c', 50, 60);
-  
+
     safeTimeout(() => {
       if (doneRef.current) return;
-  
+
       setNearMissShake(false);
       setDragX(0);
     }, 250);
   }, [showPopup, safeTimeout]);
 
   const finishDrag = useCallback(() => {
-    if (
-      processingRef.current ||
-      pausedRef.current ||
-      doneRef.current
-    ) {
-      return;
-    }
+    if (processingRef.current || pausedRef.current || doneRef.current) return;
 
     setIsDragging(false);
     setHint(null);
@@ -290,6 +293,7 @@ const isPanicMode = timeLeft <= 10;
   const swipePower = Math.abs(dragX);
   const swipeOpacity = Math.min(swipePower / PERFECT_THRESHOLD, 1);
   const isPerfectDragging = isDragging && swipePower >= PERFECT_THRESHOLD;
+
   let animClass = '';
   if (cardAnim === 'in') animClass = 'card-slide-in';
   else if (cardAnim === 'out-right') animClass = 'card-slide-out-right';
@@ -298,10 +302,10 @@ const isPanicMode = timeLeft <= 10;
   return (
     <>
       {showIntro && (
-  <div
-  onPointerUp={() => setShowIntro(false)}
-    className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
-  >
+        <div
+          onPointerUp={() => setShowIntro(false)}
+          className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
+        >
           <div
             className="bounce-in"
             style={{
@@ -311,7 +315,7 @@ const isPanicMode = timeLeft <= 10;
           >
             👷
           </div>
-  
+
           <div
             className="font-game text-yellow-300 font-bold mt-3 bounce-in"
             style={{
@@ -321,7 +325,7 @@ const isPanicMode = timeLeft <= 10;
           >
             พนักงานใหม่เข้ากะ!
           </div>
-  
+
           <div
             className="font-game text-white/85 mt-3 leading-relaxed bounce-in"
             style={{
@@ -329,348 +333,292 @@ const isPanicMode = timeLeft <= 10;
               animationDelay: '0.1s',
             }}
           >
-            ตัดสินให้ถูกว่าอะไรปลอดภัย!
+            อ่านสถานการณ์ให้ไว แล้วตัดสินใจ!
             <div
-  className="mt-10 px-5 py-3 rounded-2xl animate-pulse"
-  style={{
-    background: 'rgba(250,204,21,0.16)',
-    border: '2px solid rgba(250,204,21,0.45)',
-    boxShadow: '0 0 24px rgba(250,204,21,0.2)',
-  }}
->
-  <div
-    className="font-game text-yellow-300 font-bold"
-    style={{
-      fontSize: 'clamp(1.1rem, 5vw, 1.45rem)',
-      textShadow: '0 2px 0 rgba(0,0,0,0.45)',
-      letterSpacing: '0.02em',
-    }}
-  >
-    👆 แตะหน้าจอเพื่อเริ่ม!
-  </div>
-</div>
+              className="mt-10 px-5 py-3 rounded-2xl animate-pulse"
+              style={{
+                background: 'rgba(250,204,21,0.16)',
+                border: '2px solid rgba(250,204,21,0.45)',
+                boxShadow: '0 0 24px rgba(250,204,21,0.2)',
+              }}
+            >
+              <div
+                className="font-game text-yellow-300 font-bold"
+                style={{
+                  fontSize: 'clamp(1.1rem, 5vw, 1.45rem)',
+                  textShadow: '0 2px 0 rgba(0,0,0,0.45)',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                👆 แตะหน้าจอเพื่อเริ่ม!
+              </div>
+            </div>
           </div>
         </div>
       )}
-  
+
       <div
-      className={`
-        flex flex-col h-full overflow-hidden select-none relative
-        bg-gradient-to-b from-slate-800 to-slate-900
-        ${screenShake ? 'screen-shake' : ''}
-        ${isPanicMode ? 'panic-mode' : ''}
-        ${hitStop ? 'hit-stop' : ''}
-      `}
-    >
-      {flashType && (
-        <div
-          className={`
-            absolute inset-0 z-20 pointer-events-none
-            ${flashType === 'correct' ? 'correct-overlay' : ''}
-            ${flashType === 'wrong' ? 'wrong-overlay' : ''}
-            ${flashType === 'perfect' ? 'perfect-overlay' : ''}
-          `}
-        />
-      )}
+        className={`
+          flex flex-col h-full overflow-hidden select-none relative
+          bg-gradient-to-b from-slate-800 to-slate-900
+          ${screenShake ? 'screen-shake' : ''}
+          ${isPanicMode ? 'panic-mode' : ''}
+          ${hitStop ? 'hit-stop' : ''}
+        `}
+      >
+        {flashType && (
+          <div
+            className={`
+              absolute inset-0 z-20 pointer-events-none
+              ${flashType === 'correct' ? 'correct-overlay' : ''}
+              ${flashType === 'wrong' ? 'wrong-overlay' : ''}
+              ${flashType === 'perfect' ? 'perfect-overlay' : ''}
+            `}
+          />
+        )}
 
-      {PauseOverlay}
-      {impactType && (
-  <div className={`impact-text impact-${impactType}`}>
-    {impactType === 'perfect'
-      ? 'PERFECT!'
-      : impactType === 'correct'
-        ? 'ถูกต้อง!'
-        : 'ผิด!'}
-  </div>
-)}
-      <div className="flex-shrink-0 px-4 pt-5 pb-2">
-        <div className="flex items-center justify-between mb-3">
-        <div>
-  <div className="font-game text-white/50 text-xs">ด่าน 1</div>
+        {PauseOverlay}
 
-  <div
-    className="font-game text-white font-bold leading-tight"
-    style={{
-      fontSize: 'clamp(1.15rem, 5vw, 1.5rem)',
-      textShadow: '0 2px 0 rgba(0,0,0,0.35)',
-    }}
-  >
-    ปัดซ้ายปัดขวา
-    <div className="text-yellow-300">
-      ปัดเป่าอันตราย
-    </div>
-  </div>
-</div>
+        {impactType && (
+          <div className={`impact-text impact-${impactType}`}>
+            {impactType === 'perfect'
+              ? 'PERFECT!'
+              : impactType === 'correct'
+                ? 'ถูกต้อง!'
+                : 'ผิด!'}
+          </div>
+        )}
 
-<div className="flex items-center gap-2">
-            <PauseButton paused={paused} onToggle={togglePause} />
+        <div className="flex-shrink-0 px-4 pt-5 pb-2">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <div className="font-game text-white/50 text-xs">ด่าน 1</div>
 
-            <div className="text-right">
               <div
-                className="font-game text-yellow-400 font-bold"
-                style={{ fontSize: 'clamp(1.2rem, 6vw, 1.8rem)' }}
+                className="font-game text-white font-bold leading-tight"
+                style={{
+                  fontSize: 'clamp(1.15rem, 5vw, 1.5rem)',
+                  textShadow: '0 2px 0 rgba(0,0,0,0.35)',
+                }}
               >
-                {score}
+                ปัดซ้ายปัดขวา
+                <div className="text-yellow-300">
+                  ปัดเป่าอันตราย
+                </div>
               </div>
-              <div className="font-game text-white/40 text-xs">คะแนน</div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <PauseButton paused={paused} onToggle={togglePause} />
+
+              <div className="text-right">
+                <div
+                  className="font-game text-yellow-400 font-bold"
+                  style={{ fontSize: 'clamp(1.2rem, 6vw, 1.8rem)' }}
+                >
+                  {score}
+                </div>
+                <div className="font-game text-white/40 text-xs">คะแนน</div>
+              </div>
+            </div>
+          </div>
+
+          <TimerBar timeLeft={timeLeft} totalTime={GAME_DURATION} />
+
+          <div className="mt-2 flex justify-center">
+            <div
+              className="rounded-xl px-3 py-1.5"
+              style={{
+                background:
+                  score >= CLEAR_SCORE
+                    ? 'rgba(250,204,21,0.22)'
+                    : 'rgba(255,255,255,0.08)',
+                border:
+                  score >= CLEAR_SCORE
+                    ? '1px solid rgba(250,204,21,0.5)'
+                    : '1px solid rgba(255,255,255,0.08)',
+              }}
+            >
+              <span
+                className="font-game font-bold"
+                style={{
+                  color: score >= CLEAR_SCORE ? '#fde047' : 'rgba(255,255,255,0.9)',
+                  fontSize: 'clamp(1rem,4.5vw,1.2rem)',
+                  padding: '2px 4px',
+                  textShadow: '0 2px 0 rgba(0,0,0,0.45)',
+                }}
+              >
+                {score >= CLEAR_SCORE
+                  ? '🚨 ผ่านแล้ว!'
+                  : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
+              </span>
+            </div>
+          </div>
+
+          {isPanicMode && (
+            <div className="font-game text-red-300 text-center text-xs mt-2 animate-pulse">
+              เหลือเวลาอีกนิดเดียว! รีบตัดสินใจ!
+            </div>
+          )}
+        </div>
+
+        <div className="flex-1 flex items-center justify-center px-4 relative">
+          <ScorePopupLayer popups={popups} />
+
+          <div
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-150"
+            style={{ opacity: hint === 'left' ? 1 : 0 }}
+          >
+            <div className="bg-red-500 rounded-2xl px-3 py-3 flex flex-col items-center gap-1 shadow-lg">
+              <span className="text-2xl">⚠️</span>
+              <span className="font-game text-white text-sm font-bold">ไม่ปลอดภัย</span>
+            </div>
+          </div>
+
+          <div
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-150"
+            style={{ opacity: hint === 'right' ? 1 : 0 }}
+          >
+            <div className="bg-green-500 rounded-2xl px-3 py-3 flex flex-col items-center gap-1 shadow-lg">
+              <span className="text-2xl">✅</span>
+              <span className="font-game text-white text-sm font-bold">ปลอดภัย</span>
+            </div>
+          </div>
+
+          {isPerfectDragging && (
+            <div className="absolute top-8 z-20 font-game text-yellow-300 font-bold text-lg animate-pulse">
+              PERFECT!
+            </div>
+          )}
+
+          <div
+            key={cardIndex}
+            className={`
+              swipe-card w-full max-w-[26rem] min-h-[430px] rounded-[2rem]
+              px-7 py-10 flex flex-col items-center justify-start pt-14 gap-6 cursor-grab
+              ${animClass}
+              ${nearMissShake ? 'near-miss-shake' : ''}
+            `}
+            style={{
+              background:
+                'radial-gradient(circle at top, rgba(255,255,255,0.14), rgba(17,24,39,0.96))',
+              border:
+                isPerfectDragging
+                  ? '2px solid rgba(250,204,21,0.9)'
+                  : hint === 'right'
+                    ? `2px solid rgba(34,197,94,${0.25 + swipeOpacity * 0.6})`
+                    : hint === 'left'
+                      ? `2px solid rgba(239,68,68,${0.25 + swipeOpacity * 0.6})`
+                      : '2px solid rgba(255,255,255,0.15)',
+              boxShadow:
+                isPerfectDragging
+                  ? '0 0 44px rgba(250,204,21,0.8)'
+                  : hint === 'right'
+                    ? `0 8px 32px rgba(34,197,94,${0.15 + swipeOpacity * 0.35})`
+                    : hint === 'left'
+                      ? `0 8px 32px rgba(239,68,68,${0.15 + swipeOpacity * 0.35})`
+                      : '0 12px 40px rgba(0,0,0,0.55)',
+              transform: isDragging
+                ? `translateX(${dragX}px) rotate(${rotation}deg) scale(${1 + swipeOpacity * 0.04})`
+                : undefined,
+              transition: isDragging
+                ? 'none'
+                : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
+            }}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={finishDrag}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={finishDrag}
+            onMouseLeave={() => {
+              if (isDragging) finishDrag();
+            }}
+          >
+            <div
+              className="text-[6.5rem]"
+              style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}
+            >
+              {card.emoji}
+            </div>
+
+            <div
+              className="font-game text-white text-center font-black"
+              style={{
+                fontSize: 'clamp(2rem, 8vw, 2.7rem)',
+                lineHeight: 1.12,
+                letterSpacing: '-0.02em',
+                maxWidth: '82%',
+                textShadow: '0 5px 0 rgba(0,0,0,0.6)',
+              }}
+            >
+              {card.label}
             </div>
           </div>
         </div>
 
-        <TimerBar timeLeft={timeLeft} totalTime={GAME_DURATION} />
-        <div className="mt-2 flex justify-center">
-  <div
-    className="rounded-xl px-3 py-1.5"
-    style={{
-      background:
-        score >= CLEAR_SCORE
-          ? 'rgba(250,204,21,0.22)'
-          : 'rgba(255,255,255,0.08)',
-      border:
-        score >= CLEAR_SCORE
-          ? '1px solid rgba(250,204,21,0.5)'
-          : '1px solid rgba(255,255,255,0.08)',
-    }}
-  >
-    <span
-      className="font-game font-bold"
-      style={{
-        color: score >= CLEAR_SCORE ? '#fde047' : 'rgba(255,255,255,0.9)',
-        fontSize: 'clamp(1rem,4.5vw,1.2rem)',
-        padding: '2px 4px',
-        textShadow: '0 2px 0 rgba(0,0,0,0.45)',
-      }}
-    >
-      {score >= CLEAR_SCORE
-        ? '🚨 ผ่านแล้ว!'
-        : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
-    </span>
-  </div>
-</div>
-
-        {isPanicMode && (
-          <div className="font-game text-red-300 text-center text-xs mt-2 animate-pulse">
-            เหลือเวลาอีกนิดเดียว! รีบตัดสินใจ!
-          </div>
-        )}
-      </div>
-
-      <div className="flex-shrink-0 px-4 py-2 flex gap-3 justify-center">
-  <div
-    className="flex items-center gap-2 rounded-2xl px-4 py-3"
-    style={{
-      background: 'linear-gradient(135deg, rgba(220,38,38,0.45), rgba(127,29,29,0.65))',
-      border: '2px solid rgba(248,113,113,0.75)',
-      boxShadow: '0 0 14px rgba(239,68,68,0.28)',
-    }}
-  >
-    <span
-      className="font-game text-white font-black"
-      style={{
-        fontSize: 'clamp(1.3rem,5.5vw,1.7rem)',
-        textShadow: '0 3px 0 rgba(0,0,0,0.55)',
-      }}
-    >
-      ←
-    </span>
-    <span
-      className="font-game text-white font-bold"
-      style={{
-        fontSize: 'clamp(1rem,4.2vw,1.25rem)',
-        textShadow: '0 2px 0 rgba(0,0,0,0.5)',
-      }}
-    >
-      ไม่ปลอดภัย
-    </span>
-  </div>
-
-  <div
-    className="flex items-center gap-2 rounded-2xl px-4 py-3"
-    style={{
-      background: 'linear-gradient(135deg, rgba(22,163,74,0.45), rgba(20,83,45,0.65))',
-      border: '2px solid rgba(74,222,128,0.75)',
-      boxShadow: '0 0 14px rgba(34,197,94,0.28)',
-    }}
-  >
-    <span
-      className="font-game text-white font-bold"
-      style={{
-        fontSize: 'clamp(1rem,4.2vw,1.25rem)',
-        textShadow: '0 2px 0 rgba(0,0,0,0.5)',
-      }}
-    >
-      ปลอดภัย
-    </span>
-    <span
-      className="font-game text-white font-black"
-      style={{
-        fontSize: 'clamp(1.3rem,5.5vw,1.7rem)',
-        textShadow: '0 3px 0 rgba(0,0,0,0.55)',
-      }}
-    >
-      →
-    </span>
-  </div>
-</div>
-
-      <div className="flex-1 flex items-center justify-center px-6 relative">
-        <ScorePopupLayer popups={popups} />
-
-        <div
-          className="absolute left-3 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-150"
-          style={{ opacity: hint === 'left' ? 1 : 0 }}
-        >
-          <div className="bg-red-500 rounded-2xl px-3 py-3 flex flex-col items-center gap-1 shadow-lg">
-            <span className="text-2xl">⚠️</span>
-            <span className="font-game text-white text-sm font-bold">ไม่ปลอดภัย</span>
-          </div>
-        </div>
-
-        <div
-          className="absolute right-3 top-1/2 -translate-y-1/2 z-10 transition-opacity duration-150"
-          style={{ opacity: hint === 'right' ? 1 : 0 }}
-        >
-          <div className="bg-green-500 rounded-2xl px-3 py-3 flex flex-col items-center gap-1 shadow-lg">
-            <span className="text-2xl">✅</span>
-            <span className="font-game text-white text-sm font-bold">ปลอดภัย</span>
-          </div>
-        </div>
-
-        {isPerfectDragging && (
-          <div className="absolute top-8 z-20 font-game text-yellow-300 font-bold text-lg animate-pulse">
-            PERFECT!
-          </div>
-        )}
-
-        <div
-          key={cardIndex}
-          className={`
-            swipe-card w-full max-w-xs rounded-3xl p-7 flex flex-col items-center gap-5 cursor-grab
-            ${animClass}
-            ${nearMissShake ? 'near-miss-shake' : ''}
-          `}
-          style={{
-            background: 'linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.05))',
-            border:
-              isPerfectDragging
-                ? '2px solid rgba(250,204,21,0.9)'
-                : hint === 'right'
-                  ? `2px solid rgba(34,197,94,${0.25 + swipeOpacity * 0.6})`
-                  : hint === 'left'
-                    ? `2px solid rgba(239,68,68,${0.25 + swipeOpacity * 0.6})`
-                    : '2px solid rgba(255,255,255,0.15)',
-            boxShadow:
-              isPerfectDragging
-                ? '0 0 44px rgba(250,204,21,0.8)'
-                : hint === 'right'
-                  ? `0 8px 32px rgba(34,197,94,${0.15 + swipeOpacity * 0.35})`
-                  : hint === 'left'
-                    ? `0 8px 32px rgba(239,68,68,${0.15 + swipeOpacity * 0.35})`
-                    : '0 8px 32px rgba(0,0,0,0.5)',
-            transform: isDragging
-              ? `translateX(${dragX}px) rotate(${rotation}deg) scale(${1 + swipeOpacity * 0.04})`
-              : undefined,
-            transition: isDragging
-              ? 'none'
-              : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
-          }}
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={finishDrag}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={finishDrag}
-          onMouseLeave={() => {
-            if (isDragging) finishDrag();
-          }}
-        >
-          <div
-            className="text-7xl"
-            style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}
-          >
-            {card.emoji}
-          </div>
-
-          <div
-            className="font-game text-white text-center font-bold leading-snug"
+        <div className="flex-shrink-0 px-4 pb-6 flex gap-3">
+          <button
+            onPointerUp={() => handleSwipe('left')}
+            className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
             style={{
-              fontSize: 'clamp(1.4rem, 6vw, 1.9rem)',
-              lineHeight: 1.3,
-letterSpacing: '0.01em',
-              textShadow: '1px 1px 0 rgba(0,0,0,0.5)',
+              background: 'linear-gradient(135deg, #ef4444, #991b1b)',
+              boxShadow: '0 6px 0 #450a0a, 0 0 18px rgba(239,68,68,0.38)',
+              border: '2px solid rgba(254,202,202,0.85)',
             }}
           >
-            {card.label}
-          </div>
+            <span
+              className="font-game text-white font-black"
+              style={{
+                fontSize: 'clamp(1.8rem,8vw,2.4rem)',
+                textShadow: '0 4px 0 rgba(0,0,0,0.55)',
+                lineHeight: 1,
+              }}
+            >
+              ←
+            </span>
+            <span
+              className="font-game text-white font-bold"
+              style={{
+                fontSize: 'clamp(1.25rem,5.7vw,1.75rem)',
+                textShadow: '0 3px 0 rgba(0,0,0,0.55)',
+              }}
+            >
+              ไม่ปลอดภัย
+            </span>
+          </button>
 
-          <div className="font-game text-white/30 text-xs">
-            ลากซ้าย/ขวา หรือกดปุ่มเพื่อตอบ
-          </div>
+          <button
+            onPointerUp={() => handleSwipe('right')}
+            className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
+            style={{
+              background: 'linear-gradient(135deg, #22c55e, #14532d)',
+              boxShadow: '0 6px 0 #052e16, 0 0 18px rgba(34,197,94,0.38)',
+              border: '2px solid rgba(187,247,208,0.85)',
+            }}
+          >
+            <span
+              className="font-game text-white font-bold"
+              style={{
+                fontSize: 'clamp(1.25rem,5.7vw,1.75rem)',
+                textShadow: '0 3px 0 rgba(0,0,0,0.55)',
+              }}
+            >
+              ปลอดภัย
+            </span>
+            <span
+              className="font-game text-white font-black"
+              style={{
+                fontSize: 'clamp(1.8rem,8vw,2.4rem)',
+                textShadow: '0 4px 0 rgba(0,0,0,0.55)',
+                lineHeight: 1,
+              }}
+            >
+              →
+            </span>
+          </button>
         </div>
       </div>
-
-      <div className="flex-shrink-0 px-4 pb-6 flex gap-3">
-      <button
-  onPointerUp={() => handleSwipe('left')}
-  className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
-  style={{
-    background: 'linear-gradient(135deg, #ef4444, #991b1b)',
-    boxShadow: '0 6px 0 #450a0a, 0 0 18px rgba(239,68,68,0.38)',
-    border: '2px solid rgba(254,202,202,0.85)',
-  }}
->
-  <span
-    className="font-game text-white font-black"
-    style={{
-      fontSize: 'clamp(1.8rem,8vw,2.4rem)',
-      textShadow: '0 4px 0 rgba(0,0,0,0.55)',
-      lineHeight: 1,
-    }}
-  >
-    ←
-  </span>
-  <span
-    className="font-game text-white font-bold"
-    style={{
-      fontSize: 'clamp(1.25rem,5.7vw,1.75rem)',
-      textShadow: '0 3px 0 rgba(0,0,0,0.55)',
-    }}
-  >
-    ไม่ปลอดภัย
-  </span>
-</button>
-
-<button
-  onPointerUp={() => handleSwipe('right')}
-  className="flex-1 py-5 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-transform"
-  style={{
-    background: 'linear-gradient(135deg, #22c55e, #14532d)',
-    boxShadow: '0 6px 0 #052e16, 0 0 18px rgba(34,197,94,0.38)',
-    border: '2px solid rgba(187,247,208,0.85)',
-  }}
->
-  <span
-    className="font-game text-white font-bold"
-    style={{
-      fontSize: 'clamp(1.25rem,5.7vw,1.75rem)',
-      textShadow: '0 3px 0 rgba(0,0,0,0.55)',
-    }}
-  >
-    ปลอดภัย
-  </span>
-  <span
-    className="font-game text-white font-black"
-    style={{
-      fontSize: 'clamp(1.8rem,8vw,2.4rem)',
-      textShadow: '0 4px 0 rgba(0,0,0,0.55)',
-      lineHeight: 1,
-    }}
-  >
-    →
-  </span>
-</button>
-      </div>
-      </div>
-  </>
-);
-} // deploy
+    </>
+  );
+}

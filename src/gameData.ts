@@ -14,27 +14,53 @@ export const DEPARTMENTS = [
 ];
 
 export const swipeCards: SwipeCard[] = [
-  { id: 1, label: 'ใส่หมวกนิรภัยก่อนเข้าพื้นที่ผลิต', emoji: '⛑️', isSafe: true },
-  { id: 2, label: 'วิ่งถือคัตเตอร์ในไลน์ผลิต', emoji: '🏃', isSafe: false },
-  { id: 3, label: 'เก็บสายไฟให้พ้นทางเดิน', emoji: '🔌', isSafe: true },
-  { id: 4, label: 'ใช้โทรศัพท์ตอนขับรถโฟล์คลิฟท์', emoji: '📱', isSafe: false },
-  { id: 5, label: 'สวมแว่นตานิรภัยตอนเจียรงาน', emoji: '🥽', isSafe: true },
-  { id: 6, label: 'วางกล่องบังถังดับเพลิง', emoji: '📦', isSafe: false },
-  { id: 7, label: 'แจ้งหัวหน้างานเมื่อเห็นน้ำหก', emoji: '💧', isSafe: true },
-  { id: 8, label: 'ปีนชั้นวางของแทนใช้บันได', emoji: '🧗', isSafe: false },
-  { id: 9, label: 'ใส่ถุงมือให้เหมาะกับงาน', emoji: '🧤', isSafe: true },
-  { id: 10, label: 'เอามือเข้าใกล้เครื่องจักรที่กำลังหมุน', emoji: '⚙️', isSafe: false },
-  { id: 11, label: 'ติดป้ายเตือนพื้นลื่น', emoji: '⚠️', isSafe: true },
-  { id: 12, label: 'ถอดการ์ดนิรภัยเครื่องจักรออก', emoji: '🔧', isSafe: false },
-  { id: 13, label: 'เดินตามทางเดินที่กำหนด', emoji: '🚶', isSafe: true },
-  { id: 14, label: 'หยอกล้อกันขณะยกของหนัก', emoji: '😜', isSafe: false },
-  { id: 15, label: 'ตรวจเช็กอุปกรณ์ก่อนเริ่มงาน', emoji: '📋', isSafe: true },
-  { id: 16, label: 'ทิ้งขยะเคมีลงท่อระบายน้ำ', emoji: '🧪', isSafe: false },
-  { id: 17, label: 'สวมหน้ากากขณะพ่นสี', emoji: '😷', isSafe: true },
-  { id: 18, label: 'รันเครื่องจักรโดยไม่มีใบอนุญาต', emoji: '🚫', isSafe: false },
-  { id: 19, label: 'ล็อกเครื่องจักรก่อนซ่อมบำรุง', emoji: '🔒', isSafe: true },
-  { id: 20, label: 'ยกของหนักคนเดียวโดยไม่มีอุปกรณ์ช่วย', emoji: '🏋️', isSafe: false },
-];
+    { id: 1, label: 'หมวกอยู่บนหัว แต่ยังไม่คาดสายรัดคาง', emoji: '⛑️', isSafe: false },
+    { id: 2, label: 'ใช้คัตเตอร์ทั่วไปแทน Safety Cutter', emoji: '🔪', isSafe: false },
+    { id: 3, label: 'สายไฟพาดทางเดิน แต่คนยังเดินข้ามได้อยู่', emoji: '🔌', isSafe: false },
+    { id: 4, label: 'โฟล์คลิฟท์กำลังถอย คนขับก้มดูมือถือ', emoji: '📱', isSafe: false },
+    { id: 5, label: 'ของเริ่มล้ำหน้าถังดับเพลิง แต่ยังหยิบได้อยู่', emoji: '📦', isSafe: false },
+    { id: 6, label: 'น้ำหกแล้วมีคนรีบเช็ดก่อนจะมีคนเดินผ่านมา', emoji: '💧', isSafe: true },
+    { id: 7, label: 'ของอยู่สูงแค่นิดเดียว เลยเหยียบเก้าอี้มีล้อหยิบของ', emoji: '🪑', isSafe: false },
+    { id: 8, label: 'pressure ยังไม่ลง แต่เริ่มคลายน็อตแล้ว', emoji: '🔩', isSafe: false },
+    { id: 9, label: 'ติดป้ายกั้นพื้นที่ ขณะผู้รับเหมาทำงาน', emoji: '⚠️', isSafe: true },
+    { id: 10, label: 'หยุดรอให้โฟล์คลิฟท์ผ่านก่อนข้ามทาง', emoji: '🚜', isSafe: true },
+    { id: 11, label: 'รีบยกของพร้อมกัน จนไม่มีใครมองทาง', emoji: '🏋️', isSafe: false },
+    { id: 12, label: 'เครื่องเสียงแปลก เลยหยุดเช็กก่อน', emoji: '🔧', isSafe: true },
+    { id: 13, label: 'รีบยกลังคนเดียว เพราะไม่มีคนช่วยพอดี', emoji: '📦', isSafe: false },
+    { id: 14, label: 'แก๊สยังไม่วัด แต่คนข้างในบอก “เข้าแป๊บเดียว”', emoji: '🫧', isSafe: false },
+    { id: 15, label: 'เริ่มเชื่อมแล้ว แต่ Work Permit ยังไม่มา', emoji: '🔥', isSafe: false },
+    { id: 16, label: 'โฟล์คลิฟท์หยุดรอคนเดินผ่าน', emoji: '🚜', isSafe: true },
+    { id: 17, label: 'รอ pressure ลงก่อน ถึงเริ่มแกะหน้าแปลน', emoji: '🔩', isSafe: true },
+    { id: 18, label: 'หยุดงานก่อน เพื่อเช็กเสียงเครื่องแปลก', emoji: '🛑', isSafe: true },
+    { id: 19, label: 'กล่องเริ่มล้ำทางเดิน แต่รถยังผ่านได้อยู่', emoji: '📦', isSafe: false },
+    { id: 20, label: 'เสียเวลาย้ายของ เพื่อเปิดทางถังดับเพลิง', emoji: '🧯', isSafe: true },
+    { id: 21, label: 'หยุดโฟล์คลิฟท์ให้คนเดินผ่านก่อน', emoji: '🚧', isSafe: true },
+    { id: 22, label: 'สายไฟเริ่มแตก แต่เครื่องยังใช้งานได้อยู่', emoji: '🔌', isSafe: false },
+    { id: 23, label: 'น้ำมันหกนิดเดียว คนเลยเดินอ้อมกันเอง', emoji: '🛢️', isSafe: false },
+    { id: 24, label: 'รีบแก้งาน เลยไม่ล็อกเครื่องก่อนซ่อม', emoji: '🔒', isSafe: false },
+    { id: 25, label: 'พาเลทเริ่มโยก แต่ยังมีคนยืนหยิบของอยู่', emoji: '📦', isSafe: false },
+    { id: 26, label: 'เครนเริ่มแกว่ง แต่ด้านล่างยังมีคนเดินผ่าน', emoji: '🏗️', isSafe: false },
+    { id: 27, label: 'ถังเคมีเต็มแล้ว เลยเริ่มวางข้างเครื่องแทน', emoji: '🧪', isSafe: false },
+    { id: 28, label: 'รีบตัดพลาสติก จนปาดคัตเตอร์เข้าหาตัว', emoji: '🔪', isSafe: false },
+    { id: 29, label: 'กระเช้าสะบัด หลังเผลอไปโดนปุ่มเครน', emoji: '🏗️', isSafe: false },
+    { id: 30, label: 'เครื่องยังเดินได้ เลยยังไม่มีใครแจ้งซ่อม', emoji: '⚙️', isSafe: false },
+    { id: 31, label: 'รอเปลี่ยนใบมีดคัตเตอร์ก่อนเริ่มตัดงานต่อ', emoji: '🔪', isSafe: true },
+    { id: 32, label: 'เห็นน็อตตกพื้น เลยรีบเก็บออกจากทางเดิน', emoji: '🔩', isSafe: true },
+    { id: 33, label: 'รอสัญญาณจากคนคุมเครนก่อนยกของ', emoji: '🏗️', isSafe: true },
+    { id: 34, label: 'หยุดเดิน รอรถโฟล์คลิฟท์ผ่านก่อน', emoji: '🚜', isSafe: true },
+    { id: 35, label: 'ย้ายสายไฟออกจากทางเดิน ก่อนเริ่มงานต่อ', emoji: '🔌', isSafe: true },
+    { id: 36, label: 'รีบส่งงาน เลยวางเครื่องมือคาไว้บนเครื่องจักร', emoji: '🛠️', isSafe: false },
+    { id: 37, label: 'ปุ่ม Emergency Stop ถูกวางของบังไว้บางส่วน', emoji: '🛑', isSafe: false },
+    { id: 38, label: 'รีบข้ามพื้นที่กั้น เพราะอีกฝั่งใกล้กว่า', emoji: '🚧', isSafe: false },
+    { id: 39, label: 'พื้นเริ่มลื่น แต่ยังไม่มีใครล้ม', emoji: '💧', isSafe: false },
+    { id: 40, label: 'หยุดงานชั่วคราว เพื่อรอค่าแก๊สยืนยัน', emoji: '🫧', isSafe: true },
+    { id: 41, label: 'รีบขึ้นนั่งร้านก่อนตรวจสภาพ', emoji: '🪜', isSafe: false },
+    { id: 42, label: 'ยอมเสียเวลา เพื่อทำ Safety Review ให้ครบ', emoji: '📋', isSafe: true },
+  { id: 43, label: 'ทีมงานรอ Safety Review ก่อนเข้าพื้นที่', emoji: '📋', isSafe: true },
+  { id: 44, label: 'หยุดเปิดงาน เพราะ Safety Review ยังไม่ครบ', emoji: '⚠️', isSafe: true },
+  { id: 45, label: 'รอ Safety Review จบก่อนเริ่มงาน', emoji: '📋', isSafe: true },
+  { id: 46, label: 'เลื่อนเริ่มงาน เพื่อรอ Safety Review ยืนยัน', emoji: '📄', isSafe: true },
+  ];
 
 export const ppeItems: PPEItem[] = [
   { id: 1, emoji: '🪖', label: 'หมวก', isCorrect: true },
@@ -206,6 +232,6 @@ export const inspectScenes: InspectScene[] = [
 ];
 
 export const STAGE_PASS_SCORE = 500;
-export const GAME_DURATION = 30;
+export const GAME_DURATION = 60;
 export const POINTS_CORRECT = 30;
 export const POINTS_WRONG = -10;
