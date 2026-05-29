@@ -241,7 +241,7 @@ export const OBJECTS: SafetyObject[] = [
     
     {
     id: "smoke_man",
-    label: "สูบบุหรี่",
+    label: "สูบบุหรี่ในพื้นที่ปฏิบัติงาน",
     image: "/assets/safety-grid/Unsafe Action/smoke-man.png",
     type: "UA",
     spawn: "HUMAN",
