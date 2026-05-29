@@ -41,7 +41,7 @@ export function usePause({
 
   const PauseOverlay = paused ? (
     <div
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-6"
+    className="fixed inset-0 z-[99999] flex flex-col items-center justify-center gap-6"
       style={{ background: 'rgba(0,0,0,0.88)' }}
     >
       <div
