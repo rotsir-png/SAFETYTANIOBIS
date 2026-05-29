@@ -7,13 +7,14 @@ import {
   type SceneObject,
 } from "../data/stage2Objects";
 import { rand, makeScene } from "../data/stage2Scene";
+import { playSfx } from "../sound";
 interface Props {
   onComplete?: (score: number) => void;
 }
 
 const GAME_DURATION = 90;
 const CLEAR_SCORE = 500;
-const POINTS_CORRECT = 20;
+const POINTS_CORRECT = 30;
 const POINTS_WRONG = -20;
 export default function InspectGridPrototype({ onComplete }: Props) {
   const [showIntro, setShowIntro] = useState(true);
@@ -29,6 +30,9 @@ export default function InspectGridPrototype({ onComplete }: Props) {
   const scoreRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const doneRef = useRef(false);
+  const correctSfx = useRef(new Audio("/sfx/correct.wav"));
+const wrongSfx = useRef(new Audio("/sfx/wrong.wav"));
+const perfectSfx = useRef(new Audio("/sfx/perfect.wav"));
   const pausedRef = useRef(false);
 
   const { popups, showPopup } = useScorePopup();
@@ -44,6 +48,11 @@ export default function InspectGridPrototype({ onComplete }: Props) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+  useEffect(() => {
+    correctSfx.current.volume = 0.5;
+    wrongSfx.current.volume = 0.6;
+    perfectSfx.current.volume = 0.7;
+  }, []);
 
   const hazardsLeft = useMemo(
     () => sceneObjects.filter((o) => o.type !== "SAFE").length,
@@ -100,7 +109,8 @@ export default function InspectGridPrototype({ onComplete }: Props) {
 
   useEffect(() => {
     if (showIntro || doneRef.current) return;
-
+    perfectSfx.current.currentTime = 0;
+    playSfx(perfectSfx.current);
     if (hazardsLeft === 0) {
       const id = setTimeout(() => {
         nextScene();
@@ -119,6 +129,8 @@ export default function InspectGridPrototype({ onComplete }: Props) {
       setScore(ns);
       setMsg("ผิด! อันนี้ปลอดภัยอยู่แล้ว 😂");
       showPopup(`${POINTS_WRONG}`, "#ef4444", 50, 55);
+      wrongSfx.current.currentTime = 0;
+playSfx(wrongSfx.current);
 
       setFlashType("wrong");
       setScreenShake(true);
@@ -130,6 +142,8 @@ export default function InspectGridPrototype({ onComplete }: Props) {
       setScore(ns);
       setMsg(`ถูกต้อง! +${POINTS_CORRECT}`);
       showPopup(`+${POINTS_CORRECT}`, "#22c55e", selected.x, selected.y);
+      correctSfx.current.currentTime = 0;
+playSfx(correctSfx.current);
 
       setFlashType("correct");
       setTimeout(() => setFlashType(null), 160);
@@ -151,6 +165,8 @@ setTimeout(() => {
       setScore(ns);
       setMsg("ผิดประเภท! ดูดี ๆ ก่อนตอบ");
       showPopup(`${POINTS_WRONG}`, "#fb923c", 50, 55);
+      wrongSfx.current.currentTime = 0;
+playSfx(wrongSfx.current);
 
       setFlashType("wrong");
       setScreenShake(true);
@@ -242,31 +258,6 @@ setTimeout(() => {
                 <div className="text-yellow-300">หา hazard ให้หมด</div>
               </div>
             </div>
-            <button
-  onPointerUp={() => {
-    setSceneObjects(makeScene());
-    setSelected(null);
-  
-    setBgIndex(rand(1, 4));
-  
-    setMsg("");
-  }}
-  className="
-    px-5
-    py-3
-    rounded-2xl
-    bg-cyan-500/20
-    border
-    border-cyan-400/40
-    text-cyan-200
-    font-game
-    text-lg
-    active:scale-95
-    shadow-lg
-  "
->
-  🎲
-</button>
 
             <div className="flex items-center gap-2">
               <PauseButton paused={paused} onToggle={togglePause} />
