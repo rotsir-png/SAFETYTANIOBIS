@@ -720,16 +720,16 @@ setTimeout(() => {
               textShadow: "0 3px 0 rgba(0,0,0,0.45)",
             }}
           >
-            ตรวจโรงงานเดือด!
+            ตรวจโรงงาน!
           </div>
 
           <div
             className="font-game text-white/85 mt-3 leading-relaxed"
-            style={{ fontSize: "clamp(0.9rem, 4vw, 1.05rem)" }}
+            style={{ fontSize: "clamp(1.4rem, 4vw, 1.05rem)" }}
           >
-            จิ้มสิ่งที่ผิด แล้วเลือกให้ถูกว่าเป็น
-            <div className="text-red-300 mt-2">Unsafe Action</div>
-            <div className="text-orange-300">Unsafe Condition</div>
+            จิ้มสิ่งที่ไม่ปลอดภัย แล้วเลือกให้ถูกว่าเป็น
+            <div className="text-red-400 mt-2">Unsafe Action</div>
+            <div className="text-orange-400">Unsafe Condition</div>
           </div>
 
           <div
