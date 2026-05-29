@@ -383,9 +383,9 @@ const OBJECTS: SafetyObject[] = [
   },
   
   {
-  id: "unstable_pipe",
+  id: "unstable",
   label: "ของวางไม่มั่นคง",
-  image: "/assets/safety-grid/Unsafe Condition/unstable-pipe.png",
+  image: "/assets/safety-grid/Unsafe Condition/unstable.png",
   type: "UC",
   spawn: "OBJECT",
   size: 100,
