@@ -13,6 +13,7 @@ interface Props {
 }
 
 const ENDLESS_REQUIRES_STAGES = [1, 2, 3];
+const ENDLESS_ENABLED = false;
 
 export default function TitleScreen({
   profile,
@@ -27,9 +28,9 @@ export default function TitleScreen({
   const [endlessPopFeedback, setEndlessPopFeedback] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(isSoundEnabled());
 
-  const isEndlessUnlocked = ENDLESS_REQUIRES_STAGES.every(s =>
-    progress.passedStages.includes(s)
-  );
+  const isEndlessUnlocked =
+  ENDLESS_ENABLED &&
+  ENDLESS_REQUIRES_STAGES.every(s => progress.passedStages.includes(s));
 
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 50);
@@ -152,7 +153,7 @@ export default function TitleScreen({
         <p
           className="font-game text-white text-center mt-5 px-4 leading-snug"
           style={{
-            fontSize: 'clamp(1rem, 4vw, 1.25rem)',
+            fontSize: 'clamp(0.5rem, 4vw, 1.25rem)',
             textShadow: '0 2px 5px rgba(0,0,0,0.55)',
           }}
         >
@@ -196,7 +197,7 @@ export default function TitleScreen({
               opacity: isEndlessUnlocked ? 1 : 0.9,
             }}
           >
-            ♾️Endless Mode
+            {isEndlessUnlocked ? '♾️Endless Mode' : '♾️Endless Mode'}
           </button>
 
           {endlessPopFeedback && (
@@ -208,7 +209,7 @@ export default function TitleScreen({
                 className="font-game text-yellow-300 text-center px-4"
                 style={{ fontSize: 'clamp(1.15rem, 4.5vw, 1.4rem)' }}
               >
-                ผ่านครบ 3 ด่านก่อน!
+                Endless Mode จะเปิดเร็ว ๆ นี้
               </span>
             </div>
           )}

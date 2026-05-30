@@ -312,7 +312,7 @@ if (p) {
           profile={profile}
           progress={progress}
           onCampaign={() => setScreen('campaign')}
-          onEndless={() => setScreen('endless')}
+          onEndless={() => setScreen('title')}
           onLeaderboard={() => setScreen('leaderboard')}
           onEditProfile={profile.profileLocked ? undefined : () => setScreen('edit_profile')}
           onResetProfile={handleResetProfile}
@@ -386,12 +386,17 @@ if (p) {
   />
 )}
 
-      {screen === 'endless' && (
-        <EndlessMode
-          key="endless"
-          onComplete={handleEndlessComplete}
-        />
-      )}
+{screen === 'endless' && profile && (
+  <TitleScreen
+    profile={profile}
+    progress={progress}
+    onCampaign={() => setScreen('campaign')}
+    onEndless={() => setScreen('title')}
+    onLeaderboard={() => setScreen('leaderboard')}
+    onEditProfile={profile.profileLocked ? undefined : () => setScreen('edit_profile')}
+    onResetProfile={handleResetProfile}
+  />
+)}
 
       {screen === 'result' && result && (
         <ResultScreen
