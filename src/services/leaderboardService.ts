@@ -34,22 +34,23 @@ export async function recordStageClear(
   stageId: number,
   score: number
 ): Promise<void> {
+  if (!supabase) {
+    console.warn('[Leaderboard] Supabase not configured. Stage clear not persisted remotely.');
+    return;
+  }
+
   try {
-    const res = await fetch('/api/stage-clear', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        profile,
-        stageId,
-        score,
-      }),
+    const { error } = await supabase.from('stage_clears').insert({
+      line_user_id: primaryId(profile),
+      employee_id: profile.employeeId,
+      department: profile.department,
+      stage_id: stageId,
+      score,
+      cleared_at: new Date().toISOString(),
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      console.warn('[Leaderboard] recordStageClear API error:', text);
+    if (error) {
+      console.warn('[Leaderboard] recordStageClear error:', error.message);
     }
   } catch (err) {
     console.warn('[Leaderboard] recordStageClear threw:', err);
