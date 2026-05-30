@@ -3,7 +3,7 @@ import TimerBar from '../components/TimerBar';
 import ScorePopupLayer, { useScorePopup } from '../components/ScorePopup';
 import PauseButton, { usePause } from '../components/PauseButton';
 import { swipeCards, GAME_DURATION, POINTS_CORRECT, POINTS_WRONG } from '../gameData';
-import { playSfx } from '../sound';
+import { playSfx, unlockAudio } from '../sound';
 
 interface Props {
   onComplete: (score: number) => void;
@@ -98,7 +98,11 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
 
   const startXRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+const activePointerIdRef = useRef<number | null>(null);
+const latestDragXRef = useRef(0);
+const rafRef = useRef<number | null>(null);
+
+const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const processingRef = useRef(false);
   const scoreRef = useRef(0);
   const pausedRef = useRef(false);
@@ -356,7 +360,10 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
     <>
       {showIntro && (
         <div
-          onPointerUp={() => setShowIntro(false)}
+        onPointerUp={() => {
+          unlockAudio();
+          setShowIntro(false);
+        }}
           className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
         >
           <div
