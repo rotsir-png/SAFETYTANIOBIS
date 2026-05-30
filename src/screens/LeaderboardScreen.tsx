@@ -105,7 +105,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
         </button>
         <h2
           className="font-game text-yellow-400 font-bold"
-          style={{ fontSize: 'clamp(1rem, 4.5vw, 1.3rem)' }}
+          style={{ fontSize: 'clamp(1.25rem, 5.5vw, 1.6rem)' }}
         >
           🏆 Leaderboard
         </h2>
@@ -122,7 +122,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
               : 'rgba(255,255,255,0.08)',
             color: tab === 'endless' ? 'white' : 'rgba(255,255,255,0.5)',
             boxShadow: tab === 'endless' ? '0 3px 0 #7f1d1d' : 'none',
-            fontSize: 'clamp(0.8rem, 3.5vw, 1rem)',
+            fontSize: 'clamp(1rem, 4.2vw, 1.2rem)',
           }}
         >
           ♾️ Top Endless
@@ -147,7 +147,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
       <div className="flex-1 overflow-y-auto px-4 pb-6" style={{ scrollbarWidth: 'none' }}>
         {tab === 'endless' ? (
           <>
-            <div className="font-game text-white/30 text-xs text-center mb-3">
+            <div className="font-game text-white/100 text-xs text-center mb-3">
               Top Endless Mode · คะแนนสูงสุด 1 อันดับต่อผู้เล่น
             </div>
 
@@ -169,7 +169,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
                   return (
                     <div
                       key={`${entry.lineUserId ?? entry.employeeId}-${i}`}
-                      className="flex items-center rounded-2xl px-4 py-3 gap-3"
+                      className="flex items-center rounded-2xl px-4 py-4 gap-3"
                       style={{
                         background: mine
                           ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.08))'
@@ -185,7 +185,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-game text-white font-bold text-sm truncate">
+                          <span className="font-game text-white font-bold text-base truncate">
                             {entry.employeeId}
                           </span>
                           {mine && (
@@ -197,10 +197,10 @@ export default function LeaderboardScreen({ onBack }: Props) {
                             </span>
                           )}
                         </div>
-                        <div className="font-game text-white/40 text-xs truncate">{entry.dept}</div>
+                        <div className="font-game text-white/55 text-sm truncate">{entry.dept}</div>
                       </div>
                       <div className="text-right flex-shrink-0">
-                        <div className="font-game text-yellow-400 font-bold" style={{ fontSize: 'clamp(0.75rem, 3vw, 0.9rem)' }}>
+                        <div className="font-game text-yellow-400 font-bold" style={{ fontSize: 'clamp(1rem, 4vw, 1.2rem)' }}>
                           {entry.score.toLocaleString()}
                         </div>
                         <div className="font-game text-white/30 text-xs">{entry.survivedSeconds} วิ</div>
@@ -213,8 +213,8 @@ export default function LeaderboardScreen({ onBack }: Props) {
           </>
         ) : (
           <>
-            <div className="font-game text-white/30 text-xs text-center mb-3">
-            Participation Dept · % คนที่เล่นครบ Stage 1-8
+            <div className="font-game text-white/100 text-xs text-center mb-3">
+            Participation Dept ที่จัดกลุ่มไว้ · % คนที่เล่นครบทั้ง 3 ด่าน
             </div>
 
             {loadingDept ? (
@@ -245,10 +245,10 @@ export default function LeaderboardScreen({ onBack }: Props) {
                       }}
                     >
                       <div className="flex justify-between items-center mb-2">
-                        <div className="font-game text-white font-bold text-sm flex-1 min-w-0 pr-2 truncate">
+                        <div className="font-game text-white font-bold text-base flex-1 min-w-0 pr-2 truncate">
                           {dept.dept}
                         </div>
-                        <div className="font-game font-bold flex-shrink-0" style={{ color: barColor, fontSize: 'clamp(0.75rem, 3vw, 0.9rem)' }}>
+                        <div className="font-game font-bold flex-shrink-0" style={{ color: barColor, fontSize: 'clamp(1rem, 4vw, 1.2rem)' }}>
                         {dept.percent}%
                         </div>
                       </div>
