@@ -197,15 +197,74 @@ if (p) {
   if (!liffReady) {
     return (
       <div
-        className="fixed inset-0 flex items-center justify-center bg-gradient-to-b from-yellow-400 to-orange-500"
-        style={{ maxWidth: '430px', margin: '0 auto' }}
+        className="fixed inset-0 flex items-center justify-center overflow-hidden"
+        style={{
+          maxWidth: '430px',
+          margin: '0 auto',
+          background:
+            'radial-gradient(circle at top, #145b6b 0%, #071827 40%, #030712 100%)',
+        }}
       >
-        <div className="text-center">
-          <div className="text-6xl mb-4">🏭</div>
-          <div className="font-game text-white text-lg" style={{ textShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}>
+        <div
+          className="absolute -top-24 -left-24 w-72 h-72 rounded-full pointer-events-none"
+          style={{ background: 'rgba(45,170,190,0.18)', filter: 'blur(12px)' }}
+        />
+        <div
+          className="absolute top-24 right-[-90px] w-64 h-64 rounded-full pointer-events-none"
+          style={{ background: 'rgba(255,255,255,0.07)', filter: 'blur(14px)' }}
+        />
+  
+        <div className="relative z-10 text-center px-6">
+          <div
+            className="font-game text-white font-bold leading-none mb-3"
+            style={{
+              fontSize: 'clamp(3rem, 14vw, 4.8rem)',
+              textShadow:
+                '0 5px 0 rgba(0,0,0,0.6), 0 0 26px rgba(45,170,190,0.5)',
+            }}
+          >
+            TANIOBIS
+          </div>
+  
+          <div
+            className="font-game font-bold mb-6"
+            style={{
+              color: '#2DAABE',
+              fontSize: 'clamp(1.4rem, 7vw, 2.2rem)',
+              textShadow:
+                '0 4px 0 rgba(0,0,0,0.65), 0 0 20px rgba(45,170,190,0.55)',
+            }}
+          >
+            SAFETY GAME EVENT
+          </div>
+  
+          <div className="flex justify-center gap-2 mb-4">
+            {[0, 1, 2].map(i => (
+              <span
+                key={i}
+                className="w-3 h-3 rounded-full"
+                style={{
+                  background: '#2DAABE',
+                  animation: `loadingDot 0.9s ${i * 0.15}s infinite alternate`,
+                }}
+              />
+            ))}
+          </div>
+  
+          <div
+            className="font-game text-white/85"
+            style={{ fontSize: 'clamp(1rem, 4vw, 1.2rem)' }}
+          >
             กำลังโหลด...
           </div>
         </div>
+  
+        <style>{`
+          @keyframes loadingDot {
+            from { opacity: 0.35; transform: translateY(0); }
+            to { opacity: 1; transform: translateY(-6px); }
+          }
+        `}</style>
       </div>
     );
   }

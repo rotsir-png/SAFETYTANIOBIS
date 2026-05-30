@@ -113,7 +113,7 @@ export default function TitleScreen({
             className="rounded-2xl px-4 py-3 font-game text-white text-sm active:scale-90 transition-transform border border-white/10"
             style={{ background: 'rgba(200,200,200,0.08)' }}
           >
-            แก้ ✏️ ข้อมูล
+            แก้ไขข้อมูล ✏️
           </button>
         )}
 
