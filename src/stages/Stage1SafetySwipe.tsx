@@ -398,60 +398,80 @@ if (rafRef.current !== null) {
   return (
     <>
       {showIntro && (
-        <div
-        onPointerUp={startGame}
-          className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
-        >
-          <div
-            className="bounce-in"
-            style={{
-              fontSize: '5rem',
-              filter: 'drop-shadow(0 6px 14px rgba(0,0,0,0.45))',
-            }}
-          >
-            👷
-          </div>
+  <div
+    onPointerUp={startGame}
+    className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
+  >
+    <div className="text-7xl mb-4">👷</div>
 
-          <div
-            className="font-game text-yellow-300 font-bold mt-3 bounce-in"
-            style={{
-              fontSize: 'clamp(1.6rem, 7vw, 2.2rem)',
-              textShadow: '0 3px 0 rgba(0,0,0,0.45)',
-            }}
-          >
-            พนักงานใหม่เข้ากะ!
-          </div>
+    <div
+      className="font-game text-yellow-300 font-bold"
+      style={{
+        fontSize: 'clamp(1.5rem, 7vw, 2.1rem)',
+        textShadow: '0 3px 0 rgba(0,0,0,0.45)',
+      }}
+    >
+      Safety Swipe!
+    </div>
 
+    <div
+      className="font-game text-white/85 mt-3 leading-relaxed"
+      style={{ fontSize: 'clamp(0.98rem, 4vw, 1.18rem)' }}
+    >
+      <div>1) อ่านการ์ดให้ไว</div>
+      <div>2) ปัดหรือตอบให้ถูกฝั่ง</div>
+
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-red-500/20 border border-red-400/40 px-2 py-2">
+          <div className="text-red-300 font-bold">ไม่ปลอดภัย</div>
           <div
-            className="font-game text-white/85 mt-3 leading-relaxed bounce-in"
-            style={{
-              fontSize: 'clamp(0.9rem, 4vw, 1.05rem)',
-              animationDelay: '0.1s',
-            }}
+            className="text-white/70"
+            style={{ fontSize: 'clamp(0.78rem, 3.2vw, 0.95rem)' }}
           >
-            อ่านสถานการณ์ให้ไว แล้วตัดสินใจ!
-            <div
-              className="mt-10 px-5 py-3 rounded-2xl animate-pulse"
-              style={{
-                background: 'rgba(250,204,21,0.16)',
-                border: '2px solid rgba(250,204,21,0.45)',
-                boxShadow: '0 0 24px rgba(250,204,21,0.2)',
-              }}
-            >
-              <div
-                className="font-game text-yellow-300 font-bold"
-                style={{
-                  fontSize: 'clamp(1.1rem, 5vw, 1.45rem)',
-                  textShadow: '0 2px 0 rgba(0,0,0,0.45)',
-                  letterSpacing: '0.02em',
-                }}
-              >
-                👆 แตะหน้าจอเพื่อเริ่ม!
-              </div>
-            </div>
+             ← ปัดซ้าย
           </div>
         </div>
-      )}
+
+        <div className="rounded-xl bg-green-500/20 border border-green-400/40 px-2 py-2">
+          <div className="text-green-300 font-bold">ปลอดภัย</div>
+          <div
+            className="text-white/70"
+            style={{ fontSize: 'clamp(0.78rem, 3.2vw, 0.95rem)' }}
+          >
+            ปัดขวา →
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl bg-black/35 border border-white/10 px-3 py-2">
+        <div className="text-green-300 font-bold">ตอบถูก +30 คะแนน</div>
+        <div className="text-red-300 font-bold">ตอบผิด -30 คะแนน</div>
+        <div className="text-yellow-300 font-bold">ผ่านด่านที่ 300 คะแนน</div>
+        <div
+          className="text-white/65"
+          style={{ fontSize: 'clamp(0.78rem, 3.2vw, 0.95rem)' }}
+        >
+          ถึงคะแนนผ่านแล้ว เล่นต่อได้จนหมดเวลา
+        </div>
+      </div>
+    </div>
+
+    <div
+      className="mt-10 px-5 py-3 rounded-2xl animate-pulse"
+      style={{
+        background: 'rgba(250,204,21,0.16)',
+        border: '2px solid rgba(250,204,21,0.45)',
+      }}
+    >
+      <div
+        className="font-game text-yellow-300 font-bold"
+        style={{ fontSize: 'clamp(1.1rem, 5vw, 1.45rem)' }}
+      >
+        👆 แตะเพื่อเริ่ม!
+      </div>
+    </div>
+  </div>
+)}
 
       <div
         className={`
@@ -497,8 +517,7 @@ if (rafRef.current !== null) {
                   textShadow: '0 2px 0 rgba(0,0,0,0.35)',
                 }}
               >
-                ปัดซ้ายปัดขวา
-                <div className="text-yellow-300">ปัดเป่าอันตราย</div>
+                Safety Swipe
               </div>
             </div>
 
@@ -556,7 +575,7 @@ if (rafRef.current !== null) {
           )}
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-4 relative">
+        <div className="flex-1 flex items-center justify-center px-2 relative">
           <ScorePopupLayer popups={popups} />
 
           <div
@@ -588,7 +607,7 @@ if (rafRef.current !== null) {
           <div
             key={cardIndex}
             className={`
-              swipe-card w-full max-w-[26rem]
+              swipe-card w-full max-w-[34rem]
               h-[clamp(300px,48vh,430px)] rounded-[2rem]
               px-4 py-6 flex flex-col items-center justify-center gap-5 cursor-grab
               ${animClass}
