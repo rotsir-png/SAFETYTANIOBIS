@@ -35,6 +35,21 @@ export async function recordStageClear(
   stageId: number,
   score: number
 ): Promise<void> {
+  try {
+    const res = await fetch('/api/stage-clear', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profile, stageId, score }),
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.warn('[Leaderboard] recordStageClear API error:', text);
+    }
+  } catch (err) {
+    console.warn('[Leaderboard] recordStageClear threw:', err);
+  }
+}
   if (!supabase) {
     console.warn('[Leaderboard] Supabase not configured. Stage clear not persisted remotely.');
     return;
@@ -52,7 +67,6 @@ export async function recordStageClear(
   } catch (err) {
     console.warn('[Leaderboard] recordStageClear threw:', err);
   }
-}
 
 // ── Endless scores ────────────────────────────────────────────────────────────
 
