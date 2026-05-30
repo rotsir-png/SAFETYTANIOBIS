@@ -485,11 +485,11 @@ export default function Stage2PPERush({ onComplete }: Props) {
 
             {selected && selectedMenuStyle && (
               <div
-                className="absolute z-[1100] w-[clamp(155px,39vw,190px)]"
+              className="absolute z-[1100] w-[clamp(170px,42vw,210px)]"
                 style={selectedMenuStyle}
               >
                 <div
-                  className="rounded-[1.15rem] p-2 border border-white/15 shadow-2xl backdrop-blur-md"
+                  className="rounded-[1.15rem] px-2 py-1.5 border border-white/15 shadow-2xl backdrop-blur-md"
                   style={{
                     background: "rgba(0,0,0,0.78)",
                   }}
@@ -498,7 +498,7 @@ export default function Stage2PPERush({ onComplete }: Props) {
                     <div className="min-w-0">
                       <div
                         className="font-game text-white/60 font-bold"
-                        style={{ fontSize: "clamp(0.62rem, 2.6vw, 0.78rem)" }}
+                        style={{ fontSize: "clamp(0.55rem, 2.2vw, 0.7rem)" }}
                       >
                         OBJECT
                       </div>
@@ -506,7 +506,8 @@ export default function Stage2PPERush({ onComplete }: Props) {
                       <div
                         className="font-game text-white font-extrabold leading-tight break-words"
                         style={{
-                          fontSize: "clamp(0.85rem, 3.6vw, 1rem)",
+                          fontSize: "clamp(1.25rem, 5vw, 1.55rem)",
+lineHeight: 1.15,
                           textShadow: "0 2px 0 rgba(0,0,0,0.5)",
                         }}
                       >
@@ -525,10 +526,11 @@ export default function Stage2PPERush({ onComplete }: Props) {
                   <div className="grid grid-cols-1 gap-2">
                     <button
                       onPointerUp={() => answer("UA")}
-                      className="bg-red-600 rounded-xl py-2 px-1.5 font-game font-black text-white active:scale-95 shadow-lg leading-tight"
+                      className="bg-red-600 rounded-xl py-2.5 px-2 font-game font-black text-white active:scale-95 shadow-lg leading-tight"
                       style={{
-                        fontSize: "clamp(0.9rem, 3.8vw, 1.08rem)",
+                        fontSize: "clamp(1.45rem, 6vw, 1.8rem)",
                         textShadow: "0 2px 0 rgba(0,0,0,0.45)",
+                        letterSpacing: "-0.01em",
                       }}
                     >
                       Unsafe
@@ -538,10 +540,11 @@ export default function Stage2PPERush({ onComplete }: Props) {
 
                     <button
                       onPointerUp={() => answer("UC")}
-                      className="bg-orange-500 rounded-xl py-2 px-1.5 font-game font-black text-white active:scale-95 shadow-lg leading-tight"
+                      className="bg-orange-500 rounded-xl py-2.5 px-2 font-game font-black text-white active:scale-95 shadow-lg leading-tight"
                       style={{
-                        fontSize: "clamp(0.9rem, 3.8vw, 1.08rem)",
+                        fontSize: "clamp(1.45rem, 6vw, 1.8rem)",
                         textShadow: "0 2px 0 rgba(0,0,0,0.45)",
+                        letterSpacing: "-0.01em",
                       }}
                     >
                       Unsafe
