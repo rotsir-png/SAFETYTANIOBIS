@@ -20,13 +20,65 @@ function shuffle<T>(arr: T[]): T[] {
   return [...arr].sort(() => Math.random() - 0.5);
 }
 
+function shuffleBalancedSwipeCards(cards: SwipeCard[]): SwipeCard[] {
+  const safe = shuffle(cards.filter((card) => card.isSafe));
+  const unsafe = shuffle(cards.filter((card) => !card.isSafe));
+
+  const result: SwipeCard[] = [];
+  let safeIndex = 0;
+  let unsafeIndex = 0;
+
+  const takeSafe = () => {
+    if (safeIndex >= safe.length) return false;
+    result.push(safe[safeIndex]);
+    safeIndex += 1;
+    return true;
+  };
+
+  const takeUnsafe = () => {
+    if (unsafeIndex >= unsafe.length) return false;
+    result.push(unsafe[unsafeIndex]);
+    unsafeIndex += 1;
+    return true;
+  };
+
+  while (safeIndex < safe.length || unsafeIndex < unsafe.length) {
+    const lastTwo = result.slice(-2);
+    const lastTwoAreSafe = lastTwo.length === 2 && lastTwo.every((card) => card.isSafe);
+    const lastTwoAreUnsafe = lastTwo.length === 2 && lastTwo.every((card) => !card.isSafe);
+
+    if (lastTwoAreSafe) {
+      if (!takeUnsafe()) takeSafe();
+      continue;
+    }
+
+    if (lastTwoAreUnsafe) {
+      if (!takeSafe()) takeUnsafe();
+      continue;
+    }
+
+    const safeLeft = safe.length - safeIndex;
+    const unsafeLeft = unsafe.length - unsafeIndex;
+
+    if (unsafeLeft > safeLeft) {
+      Math.random() < 0.65 ? takeUnsafe() : takeSafe();
+    } else if (safeLeft > unsafeLeft) {
+      Math.random() < 0.65 ? takeSafe() : takeUnsafe();
+    } else {
+      Math.random() < 0.5 ? takeSafe() : takeUnsafe();
+    }
+  }
+
+  return result;
+}
+
 const SWIPE_THRESHOLD = 80;
 const PERFECT_THRESHOLD = 140;
 const NEAR_MISS_THRESHOLD = 45;
 const CLEAR_SCORE = 300;
 
 export default function Stage1SafetySwipe({ onComplete }: Props) {
-  const [cards] = useState(() => shuffle(swipeCards));
+  const [cards] = useState(() => shuffleBalancedSwipeCards(swipeCards));
   const [showIntro, setShowIntro] = useState(true);
   const [cardIndex, setCardIndex] = useState(0);
   const [score, setScore] = useState(0);
@@ -58,10 +110,7 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const safeTimeout = useCallback((fn: () => void, delay: number) => {
     const id = setTimeout(() => {
       timeoutsRef.current = timeoutsRef.current.filter((x) => x !== id);
-
-      if (!doneRef.current) {
-        fn();
-      }
+      if (!doneRef.current) fn();
     }, delay);
 
     timeoutsRef.current.push(id);
@@ -140,92 +189,97 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
     };
   }, [onComplete, showIntro]);
 
-  const clearStage = useCallback((finalScore: number) => {
-    if (doneRef.current) return;
-
-    doneRef.current = true;
-    processingRef.current = true;
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-
-    timeoutsRef.current.forEach(clearTimeout);
-    timeoutsRef.current = [];
-
-    onComplete(finalScore);
-  }, [onComplete]);
-
-  const handleSwipe = useCallback((direction: 'left' | 'right', swipePower = 0) => {
-    if (processingRef.current || pausedRef.current || doneRef.current) return;
-
-    processingRef.current = true;
-
-    const card = cards[cardIndex % cards.length];
-    const isCorrect = direction === 'right' ? card.isSafe : !card.isSafe;
-    const isPerfect = swipePower >= PERFECT_THRESHOLD;
-
-    if (isCorrect) {
-      const ns = scoreRef.current + POINTS_CORRECT;
-      scoreRef.current = ns;
-      setScore(ns);
-
-      if (ns >= CLEAR_SCORE) {
-        clearStage(ns);
-        return;
-      }
-
-      setImpactType(isPerfect ? 'perfect' : 'correct');
-
-      safeTimeout(() => {
-        setImpactType(null);
-      }, 350);
-
-      if (isPerfect) {
-        perfectSfx.current.currentTime = 0;
-        playSfx(perfectSfx.current);
-        setFlashType('perfect');
-        showPopup(`PERFECT +${POINTS_CORRECT}`, '#facc15', 50, 50);
-      } else {
-        correctSfx.current.currentTime = 0;
-        playSfx(correctSfx.current);
-        setFlashType('correct');
-        showPopup(`+${POINTS_CORRECT}`, '#22c55e', 50, 55);
-      }
-    } else {
-      const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
-      scoreRef.current = ns;
-      setScore(ns);
-
-      wrongSfx.current.currentTime = 0;
-      playSfx(wrongSfx.current);
-
-      setImpactType('wrong');
-      setScreenShake(true);
-      setHitStop(true);
-
-      safeTimeout(() => setHitStop(false), 120);
-      safeTimeout(() => setScreenShake(false), 400);
-
-      showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
-    }
-
-    setCardAnim(direction === 'right' ? 'out-right' : 'out-left');
-
-    safeTimeout(() => {
-      setFlashType(null);
-    }, 300);
-
-    safeTimeout(() => {
+  const clearStage = useCallback(
+    (finalScore: number) => {
       if (doneRef.current) return;
 
-      setDragX(0);
-      setCardIndex((i) => i + 1);
-      setCardAnim('in');
-      processingRef.current = false;
-    }, isPanicMode ? 170 : 220);
-  }, [cards, cardIndex, showPopup, isPanicMode, clearStage, safeTimeout]);
+      doneRef.current = true;
+      processingRef.current = true;
+
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+
+      timeoutsRef.current.forEach(clearTimeout);
+      timeoutsRef.current = [];
+
+      onComplete(finalScore);
+    },
+    [onComplete]
+  );
+
+  const handleSwipe = useCallback(
+    (direction: 'left' | 'right', swipePower = 0) => {
+      if (processingRef.current || pausedRef.current || doneRef.current) return;
+
+      processingRef.current = true;
+
+      const card = cards[cardIndex % cards.length];
+      const isCorrect = direction === 'right' ? card.isSafe : !card.isSafe;
+      const isPerfect = swipePower >= PERFECT_THRESHOLD;
+
+      if (isCorrect) {
+        const ns = scoreRef.current + POINTS_CORRECT;
+        scoreRef.current = ns;
+        setScore(ns);
+
+        if (ns >= CLEAR_SCORE) {
+          clearStage(ns);
+          return;
+        }
+
+        setImpactType(isPerfect ? 'perfect' : 'correct');
+        safeTimeout(() => setImpactType(null), 350);
+
+        if (isPerfect) {
+          perfectSfx.current.currentTime = 0;
+          playSfx(perfectSfx.current);
+          setFlashType('perfect');
+          showPopup(`PERFECT +${POINTS_CORRECT}`, '#facc15', 50, 50);
+        } else {
+          correctSfx.current.currentTime = 0;
+          playSfx(correctSfx.current);
+          setFlashType('correct');
+          showPopup(`+${POINTS_CORRECT}`, '#22c55e', 50, 55);
+        }
+      } else {
+        const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
+        scoreRef.current = ns;
+        setScore(ns);
+
+        wrongSfx.current.currentTime = 0;
+        playSfx(wrongSfx.current);
+
+        setImpactType('wrong');
+        setScreenShake(true);
+        setHitStop(true);
+
+        safeTimeout(() => setImpactType(null), 350);
+        safeTimeout(() => setHitStop(false), 120);
+        safeTimeout(() => setScreenShake(false), 400);
+
+        showPopup(`${POINTS_WRONG}`, '#ef4444', 50, 55);
+      }
+
+      setCardAnim(direction === 'right' ? 'out-right' : 'out-left');
+
+      safeTimeout(() => setFlashType(null), 300);
+
+      safeTimeout(
+        () => {
+          if (doneRef.current) return;
+
+          setDragX(0);
+          setCardIndex((i) => i + 1);
+          setCardAnim('in');
+          processingRef.current = false;
+        },
+        isPanicMode ? 170 : 220
+      );
+    },
+    [cards, cardIndex, showPopup, isPanicMode, clearStage, safeTimeout]
+  );
 
   const triggerNearMiss = useCallback(() => {
     if (doneRef.current) return;
@@ -235,7 +289,6 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
 
     safeTimeout(() => {
       if (doneRef.current) return;
-
       setNearMissShake(false);
       setDragX(0);
     }, 250);
@@ -265,13 +318,16 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
     setIsDragging(true);
   }, []);
 
-  const onTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging || processingRef.current || pausedRef.current) return;
+  const onTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (!isDragging || processingRef.current || pausedRef.current) return;
 
-    const dx = e.touches[0].clientX - startXRef.current;
-    setDragX(dx);
-    setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
-  }, [isDragging]);
+      const dx = e.touches[0].clientX - startXRef.current;
+      setDragX(dx);
+      setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
+    },
+    [isDragging]
+  );
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     if (processingRef.current || pausedRef.current) return;
@@ -280,13 +336,16 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
     setIsDragging(true);
   }, []);
 
-  const onMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging || processingRef.current || pausedRef.current) return;
+  const onMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isDragging || processingRef.current || pausedRef.current) return;
 
-    const dx = e.clientX - startXRef.current;
-    setDragX(dx);
-    setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
-  }, [isDragging]);
+      const dx = e.clientX - startXRef.current;
+      setDragX(dx);
+      setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
+    },
+    [isDragging]
+  );
 
   const card = cards[cardIndex % cards.length];
   const rotation = dragX * 0.07;
@@ -402,9 +461,7 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
                 }}
               >
                 ปัดซ้ายปัดขวา
-                <div className="text-yellow-300">
-                  ปัดเป่าอันตราย
-                </div>
+                <div className="text-yellow-300">ปัดเป่าอันตราย</div>
               </div>
             </div>
 
@@ -494,12 +551,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
           <div
             key={cardIndex}
             className={`
-  swipe-card w-full max-w-[26rem]
-  h-[clamp(300px,48vh,430px)] rounded-[2rem]
-  px-6 py-6 flex flex-col items-center justify-center gap-5 cursor-grab
-  ${animClass}
-  ${nearMissShake ? 'near-miss-shake' : ''}
-`}
+              swipe-card w-full max-w-[26rem]
+              h-[clamp(300px,48vh,430px)] rounded-[2rem]
+              px-4 py-6 flex flex-col items-center justify-center gap-5 cursor-grab
+              ${animClass}
+              ${nearMissShake ? 'near-miss-shake' : ''}
+            `}
             style={{
               background:
                 'radial-gradient(circle at top, rgba(255,255,255,0.14), rgba(17,24,39,0.96))',
@@ -522,9 +579,7 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
               transform: isDragging
                 ? `translateX(${dragX}px) rotate(${rotation}deg) scale(${1 + swipeOpacity * 0.04})`
                 : undefined,
-              transition: isDragging
-                ? 'none'
-                : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
+              transition: isDragging ? 'none' : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
             }}
             onTouchStart={onTouchStart}
             onTouchMove={onTouchMove}
@@ -549,7 +604,7 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
                 fontSize: 'clamp(2rem, 8vw, 2.7rem)',
                 lineHeight: 1.12,
                 letterSpacing: '-0.02em',
-                maxWidth: '82%',
+                maxWidth: '98%',
                 textShadow: '0 5px 0 rgba(0,0,0,0.6)',
               }}
             >
