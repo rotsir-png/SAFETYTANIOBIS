@@ -47,8 +47,10 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
   }, []);
 
   const isUnlocked = (id: number) => {
-    if (id === 3) return false; // ล็อกด่าน 3 ชั่วคราว
-    return id <= progress.highestUnlockedStage;
+    if (id === 1) return true;
+    if (id === 2) return progress.passedStages.includes(1);
+    if (id === 3) return false; // Coming Soon
+    return false;
   };
   const isPassed = (id: number) => progress.passedStages.includes(id);
 
@@ -113,15 +115,35 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
                 )}
 
                 {/* Locked pop feedback */}
-                {showLockedPop && (
-                  <div className="absolute inset-0 flex items-center justify-center z-20 rounded-2xl"
-                    style={{ background: 'rgba(0,0,0,0.85)' }}>
-                    <div className="font-game text-yellow-400 text-center bounce-in"
-                      style={{ fontSize: 'clamp(1.75rem, 20vw, 2.9rem)' }}>
-                      รอก่อนนะจ๊ะ เดี๋ยวเปิดให้เล่นเร็วๆนี้
-                    </div>
-                  </div>
-                )}
+{showLockedPop && (
+  <div
+    className="absolute inset-0 flex items-center justify-center z-20 rounded-2xl px-4"
+    style={{ background: 'rgba(0,0,0,0.9)' }}
+  >
+    <div
+      className="font-game text-yellow-300 text-center bounce-in"
+      style={{
+        fontSize: 'clamp(2.1rem, 5vw, 1.3rem)',
+        lineHeight: 1.35,
+        textShadow: '0 2px 4px rgba(0,0,0,0.6)',
+      }}
+    >
+      {stage.id === 2 ? (
+        <>
+          ผ่านด่าน 1 ก่อน
+          <br />
+          ด่าน 2 ถึงจะปลดล็อค
+        </>
+      ) : (
+        <>
+          รอก่อนนะจ๊ะ
+          <br />
+          เดี๋ยวเปิดให้เล่นเร็ว ๆ นี้
+        </>
+      )}
+    </div>
+  </div>
+)}
 
                 {/* Passed badge */}
                 {passed && unlocked && (

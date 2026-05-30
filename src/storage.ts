@@ -35,12 +35,6 @@ export function clearProfile(): void {
 }
 
 export function getProgress(): GameProgress {
-  if (import.meta.env.VITE_DEV_MODE === "true") {
-    return {
-      highestUnlockedStage: 9,
-      passedStages: [1, 2, 3, 4, 5, 6, 7, 8],
-    };
-  }
 
   try {
     const raw = localStorage.getItem(PROGRESS_KEY);
