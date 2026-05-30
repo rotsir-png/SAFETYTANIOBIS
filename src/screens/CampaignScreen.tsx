@@ -8,14 +8,33 @@ interface Props {
 }
 
 const stages = [
-  { id: 1, title: 'ด่าน 1', subTitle: 'ปัดซ้ายปัดขวา',        emoji: '👆', desc: 'ปัดเป่าอันตราย',          color: '#16a34a', shadow: '#14532d' },
-  { id: 2, title: 'ด่าน 2', subTitle: 'PPE Rush',             emoji: '⛑️', desc: 'แตะ PPE ให้ทัน!',       color: '#f59e0b', shadow: '#92400e' },
-  { id: 3, title: 'ด่าน 3', subTitle: 'Whack-a-Danger',           emoji: '🔥', desc: 'แตะอันตราย!',           color: '#dc2626', shadow: '#7f1d1d' },
-  { id: 4, title: 'ด่าน 4', subTitle: 'เครื่องจับกาชาปอง', emoji: '🎯', desc: 'คีบ PPE!', color: '#1d4ed8', shadow: '#1e3a8a' },
-  { id: 5, title: 'ด่าน 5', subTitle: 'Hazard is Coming', emoji: '🛡️', desc: 'ปกป้อง TANIOBIS!',    color: '#059669', shadow: '#064e3b' },
-  { id: 6, title: 'ด่าน 6', subTitle: 'Machine Overheating',     emoji: '⚙️', desc: 'จีบจังหวะลดอุณหภูมิเครื่องจักร',          color: '#d97706', shadow: '#78350f' },
-  { id: 7, title: 'ด่าน 7', subTitle: 'Forklift Panic',   emoji: '🚜', desc: 'อย่าชนเด็ดขาด!',         color: '#0891b2', shadow: '#164e63' },
-  { id: 8, title: 'ด่าน 8', subTitle: 'Chaos',      emoji: '🌀', desc: 'เอาตัวรอดจากทุกด่าน!',             color: '#be123c', shadow: '#881337' },
+  {
+    id: 1,
+    title: 'ด่าน 1',
+    subTitle: 'Safety Swipe',
+    emoji: '👆',
+    desc: 'ปัดแยกปลอดภัย / ไม่ปลอดภัย',
+    color: '#16a34a',
+    shadow: '#14532d',
+  },
+  {
+    id: 2,
+    title: 'ด่าน 2',
+    subTitle: 'Inspect Scene',
+    emoji: '🔎',
+    desc: 'หา UA และ UC ในโรงงาน',
+    color: '#f59e0b',
+    shadow: '#92400e',
+  },
+  {
+    id: 3,
+    title: 'ด่าน 3',
+    subTitle: '',
+    emoji: '⛑️',
+    desc: 'คีบ PPE ให้ถูกชิ้น',
+    color: '#1d4ed8',
+    shadow: '#1e3a8a',
+  },
 ];
 
 export default function CampaignScreen({ progress, onStage, onBack }: Props) {
@@ -27,13 +46,16 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
     return () => clearTimeout(t);
   }, []);
 
-  const isUnlocked = (id: number) => id <= progress.highestUnlockedStage;
+  const isUnlocked = (id: number) => {
+    if (id === 3) return false; // ล็อกด่าน 3 ชั่วคราว
+    return id <= progress.highestUnlockedStage;
+  };
   const isPassed = (id: number) => progress.passedStages.includes(id);
 
   const handleTap = (stage: typeof stages[0]) => {
     if (!isUnlocked(stage.id)) {
       setLockedPop(stage.id);
-      setTimeout(() => setLockedPop(null), 1000);
+      setTimeout(() => setLockedPop(null), 3000);
       return;
     }
     onStage(stage.id);
@@ -56,7 +78,7 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
       {/* Stage grid */}
       <div className="flex-1 overflow-y-auto px-4 pb-6" style={{ scrollbarWidth: 'none' }}>
-        <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
           {stages.map((stage, i) => {
             const unlocked = isUnlocked(stage.id);
             const passed = isPassed(stage.id);
@@ -64,10 +86,12 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
             return (
               <button
-                key={stage.id}
-                onClick={() => handleTap(stage)}
-                className="relative rounded-2xl p-4 flex flex-col items-center text-center active:scale-95 transition-transform overflow-hidden"
-                style={{
+  key={stage.id}
+  onClick={() => handleTap(stage)}
+  className={`relative rounded-2xl p-4 flex flex-col items-center text-center active:scale-95 transition-transform overflow-hidden ${
+    stage.id === 3 ? 'col-span-2' : ''
+  }`}
+  style={{
                   background: unlocked
                     ? `linear-gradient(135deg, ${stage.color}, ${stage.shadow})`
                     : 'linear-gradient(135deg, #374151, #1f2937)',
@@ -77,7 +101,7 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
                   opacity: visible ? 1 : 0,
                   transform: visible ? 'translateY(0)' : 'translateY(20px)',
                   transition: `all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) ${i * 0.07}s`,
-                  minHeight: '170px',
+                  minHeight: '190px',
                 }}
               >
                 {/* Lock overlay */}
@@ -93,8 +117,8 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
                   <div className="absolute inset-0 flex items-center justify-center z-20 rounded-2xl"
                     style={{ background: 'rgba(0,0,0,0.85)' }}>
                     <div className="font-game text-yellow-400 text-center bounce-in"
-                      style={{ fontSize: 'clamp(0.75rem, 3vw, 0.9rem)' }}>
-                      ยังไม่ปลดล็อก!
+                      style={{ fontSize: 'clamp(1.75rem, 20vw, 2.9rem)' }}>
+                      รอก่อนนะจ๊ะ เดี๋ยวเปิดให้เล่นแน่นอน
                     </div>
                   </div>
                 )}
@@ -113,12 +137,12 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
     filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.35))',
   }}
 >{unlocked ? stage.emoji : '🔒'}</span>
-                <div className="font-game text-white font-bold" style={{ fontSize: 'clamp(1.1rem, 4.5vw, 1.35rem)' }}>
+                <div className="font-game text-white font-bold" style={{ fontSize: 'clamp(1.3rem, 5vw, 1.6rem)' }}>
                   {stage.title}
                 </div>
                 <div className="font-game text-white/80 mt-1"
 style={{
-  fontSize: 'clamp(0.8rem, 3.4vw, 0.95rem)',
+  fontSize: 'clamp(0.95rem, 3.8vw, 1.1rem)',
   lineHeight: 1.3,
 }}>{stage.subTitle}</div>
                 {unlocked && (
