@@ -207,13 +207,37 @@ export default function Stage2PPERush({ onComplete }: Props) {
           </div>
 
           <div
-            className="font-game text-white/85 mt-3 leading-relaxed"
-            style={{ fontSize: "clamp(1.05rem, 4.2vw, 1.25rem)" }}
-          >
-            จิ้มสิ่งที่ไม่ปลอดภัย แล้วเลือกให้ถูกว่าเป็น
-            <div className="text-red-400 mt-2">Unsafe Action</div>
-            <div className="text-orange-400">Unsafe Condition</div>
-          </div>
+  className="font-game text-white/85 mt-3 leading-relaxed"
+  style={{ fontSize: "clamp(0.98rem, 4vw, 1.18rem)" }}
+>
+  <div>1) จิ้มสิ่งที่ไม่ปลอดภัยในภาพ</div>
+  <div>2) เลือกประเภทให้ถูก</div>
+
+  <div className="mt-3 grid grid-cols-2 gap-2">
+    <div className="rounded-xl bg-red-500/20 border border-red-400/40 px-2 py-2">
+      <div className="text-red-300 font-bold">Unsafe Action</div>
+      <div className="text-white/70" style={{ fontSize: "clamp(0.78rem, 3.2vw, 0.95rem)" }}>
+        คนทำไม่ปลอดภัย
+      </div>
+    </div>
+
+    <div className="rounded-xl bg-orange-500/20 border border-orange-400/40 px-2 py-2">
+      <div className="text-orange-300 font-bold">Unsafe Condition</div>
+      <div className="text-white/70" style={{ fontSize: "clamp(0.78rem, 3.2vw, 0.95rem)" }}>
+        สภาพแวดล้อมเสี่ยง
+      </div>
+    </div>
+  </div>
+
+  <div className="mt-3 rounded-2xl bg-black/35 border border-white/10 px-3 py-2">
+    <div className="text-green-300 font-bold">ตอบถูก +30 คะแนน</div>
+    <div className="text-red-300 font-bold">ตอบผิด -30 คะแนน</div>
+    <div className="text-yellow-300 font-bold">ผ่านด่านที่ 400 คะแนน</div>
+    <div className="text-white/65" style={{ fontSize: "clamp(0.78rem, 3.2vw, 0.95rem)" }}>
+      เล่นต่อได้จนหมดเวลา
+    </div>
+  </div>
+</div>
 
           <div
             className="mt-10 px-5 py-3 rounded-2xl animate-pulse"
@@ -461,7 +485,7 @@ export default function Stage2PPERush({ onComplete }: Props) {
 
             {selected && selectedMenuStyle && (
               <div
-                className="absolute z-[1100] w-[clamp(155px,39vw,190px)] animate-[menuUp_0.16s_ease-out]"
+                className="absolute z-[1100] w-[clamp(155px,39vw,190px)]"
                 style={selectedMenuStyle}
               >
                 <div
