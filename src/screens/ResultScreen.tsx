@@ -30,13 +30,12 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
   const isEndless = result.stage === 'endless';
   const isStage7 = result.stage === 7;
 
-  const stagePassScore =
-    result.passScore ?? (
-      result.stage === 8 ? 1000 :
-      result.stage === 7 ? 0 :
-      result.stage === 1 ? 300 :
-      500
-    );
+  const STAGE_PASS_SCORE: Record<number, number> = {
+    1: 300,
+    2: 400,
+    7: 0,
+    8: 1000,
+  };
 
   const passed = result.passed;
   const isNewHigh = isEndless && result.highScore !== undefined && result.score >= result.highScore;
@@ -151,12 +150,6 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
             </div>
 
             <div className="font-game text-white/70 text-xl">คะแนน</div>
-
-            {!isEndless && (
-              <div className="font-game text-white/60 text-base mt-3">
-                {passed ? `ผ่าน! (ต้องการ ${stagePassScore})` : `ไม่ผ่าน (ต้องการ ${stagePassScore})`}
-              </div>
-            )}
           </>
         )}
 

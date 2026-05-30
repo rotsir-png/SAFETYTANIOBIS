@@ -4,7 +4,6 @@ import ScorePopupLayer, { useScorePopup } from "../components/ScorePopup";
 import PauseButton, { usePause } from "../components/PauseButton";
 import { type ObjType, type SceneObject } from "../data/stage2Objects";
 import { rand, makeScene } from "../data/stage2Scene";
-import { playSfx } from "../sound";
 
 interface Props {
   onComplete?: (score: number) => void;
@@ -32,10 +31,6 @@ export default function Stage2PPERush({ onComplete }: Props) {
   const doneRef = useRef(false);
   const pausedRef = useRef(false);
 
-  const correctSfx = useRef(new Audio("/sfx/correct.wav"));
-  const wrongSfx = useRef(new Audio("/sfx/wrong.wav"));
-  const perfectSfx = useRef(new Audio("/sfx/perfect.wav"));
-
   const { popups, showPopup } = useScorePopup();
 
   const { paused, togglePause, PauseOverlay } = usePause({
@@ -55,12 +50,6 @@ export default function Stage2PPERush({ onComplete }: Props) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
-
-  useEffect(() => {
-    correctSfx.current.volume = 0.5;
-    wrongSfx.current.volume = 0.6;
-    perfectSfx.current.volume = 0.7;
-  }, []);
 
   const hazardsLeft = useMemo(
     () => sceneObjects.filter((o) => o.type !== "SAFE").length,
@@ -133,8 +122,7 @@ export default function Stage2PPERush({ onComplete }: Props) {
     if (showIntro || doneRef.current) return;
 
     if (hazardsLeft === 0) {
-      perfectSfx.current.currentTime = 0;
-      playSfx(perfectSfx.current);
+
       setMsg("เคลียร์ Scene! ระบบกำลังสุ่มใหม่");
 
       const id = setTimeout(() => {
@@ -157,9 +145,6 @@ export default function Stage2PPERush({ onComplete }: Props) {
       setMsg("ผิด! อันนี้ปลอดภัยอยู่แล้ว 😂");
       showPopup(`${POINTS_WRONG}`, "#ef4444", 50, 55);
 
-      wrongSfx.current.currentTime = 0;
-      playSfx(wrongSfx.current);
-
       setFlashType("wrong");
       setScreenShake(true);
       setTimeout(() => setFlashType(null), 180);
@@ -174,9 +159,6 @@ export default function Stage2PPERush({ onComplete }: Props) {
       setScore(ns);
       setMsg(`ถูกต้อง! +${POINTS_CORRECT}`);
       showPopup(`+${POINTS_CORRECT}`, "#22c55e", current.x, current.y);
-
-      correctSfx.current.currentTime = 0;
-      playSfx(correctSfx.current);
 
       setFlashType("correct");
       setTimeout(() => setFlashType(null), 160);
@@ -197,9 +179,6 @@ export default function Stage2PPERush({ onComplete }: Props) {
     setScore(ns);
     setMsg("ผิดประเภท! ดูดี ๆ ก่อนตอบ");
     showPopup(`${POINTS_WRONG}`, "#fb923c", 50, 55);
-
-    wrongSfx.current.currentTime = 0;
-    playSfx(wrongSfx.current);
 
     setFlashType("wrong");
     setScreenShake(true);
