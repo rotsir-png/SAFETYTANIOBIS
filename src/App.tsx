@@ -112,10 +112,11 @@ useEffect(() => {
 
   const handleStageComplete = useCallback((score: number, stage: number) => {
     const passScore =
-      stage === 8 ? 1000 :
-      stage === 1 ? 300 :
-      stage === 7 ? 0 :
-      500;
+  stage === 1 ? 300 :
+  stage === 2 ? 400 :
+  stage === 7 ? 0 :
+  stage === 8 ? 1000 :
+  500;
   
     const passed =
       stage === 7
