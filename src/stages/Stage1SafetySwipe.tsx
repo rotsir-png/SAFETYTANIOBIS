@@ -494,11 +494,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
           <div
             key={cardIndex}
             className={`
-              swipe-card w-full max-w-[26rem] min-h-[430px] rounded-[2rem]
-              px-7 py-10 flex flex-col items-center justify-start pt-14 gap-6 cursor-grab
-              ${animClass}
-              ${nearMissShake ? 'near-miss-shake' : ''}
-            `}
+  swipe-card w-full max-w-[26rem]
+  h-[clamp(300px,48vh,430px)] rounded-[2rem]
+  px-6 py-6 flex flex-col items-center justify-center gap-5 cursor-grab
+  ${animClass}
+  ${nearMissShake ? 'near-miss-shake' : ''}
+`}
             style={{
               background:
                 'radial-gradient(circle at top, rgba(255,255,255,0.14), rgba(17,24,39,0.96))',
@@ -536,7 +537,7 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
             }}
           >
             <div
-              className="text-[6.5rem]"
+              className="text-[clamp(4.5rem,18vw,6.5rem)]"
               style={{ filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }}
             >
               {card.emoji}
