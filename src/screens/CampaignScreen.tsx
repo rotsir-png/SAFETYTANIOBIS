@@ -10,8 +10,8 @@ interface Props {
 const stages = [
   {
     id: 1,
-    title: 'ด่าน 1',
-    subTitle: 'Safety Swipe',
+    title: 'Safety Swipe',
+    subTitle: 'ด่าน 1',
     emoji: '👆',
     desc: 'ปัดแยกปลอดภัย / ไม่ปลอดภัย',
     color: '#16a34a',
@@ -19,19 +19,19 @@ const stages = [
   },
   {
     id: 2,
-    title: 'ด่าน 2',
-    subTitle: 'Inspect Scene',
+    title: 'Inspect Scene',
+    subTitle: 'ด่าน 2',
     emoji: '🔎',
-    desc: 'หา UA และ UC ในโรงงาน',
+    desc: 'หา Unsafe Action และ Unsafe Condition ในโรงงาน',
     color: '#f59e0b',
     shadow: '#92400e',
   },
   {
     id: 3,
-    title: 'ด่าน 3',
-    subTitle: '',
+    title: 'Accident Replay',
+    subTitle: 'ด่าน 3',
     emoji: '⛑️',
-    desc: 'คีบ PPE ให้ถูกชิ้น',
+    desc: 'สืบ หา สาเหตุ',
     color: '#1d4ed8',
     shadow: '#1e3a8a',
   },
@@ -71,7 +71,7 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
         >
           <span className="text-white text-xl">←</span>
         </button>
-        <h2 className="font-game text-white font-bold" style={{ fontSize: 'clamp(1.1rem, 5vw, 1.4rem)' }}>
+        <h2 className="font-game text-white font-bold" style={{ fontSize: 'clamp(3.1rem, 5vw, 1.4rem)' }}>
           เลือกด่าน
         </h2>
       </div>
@@ -118,7 +118,7 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
                     style={{ background: 'rgba(0,0,0,0.85)' }}>
                     <div className="font-game text-yellow-400 text-center bounce-in"
                       style={{ fontSize: 'clamp(1.75rem, 20vw, 2.9rem)' }}>
-                      รอก่อนนะจ๊ะ เดี๋ยวเปิดให้เล่นแน่นอน
+                      รอก่อนนะจ๊ะ เดี๋ยวเปิดให้เล่นเร็วๆนี้
                     </div>
                   </div>
                 )}
@@ -137,18 +137,19 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
     filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.35))',
   }}
 >{unlocked ? stage.emoji : '🔒'}</span>
-                <div className="font-game text-white font-bold" style={{ fontSize: 'clamp(1.3rem, 5vw, 1.6rem)' }}>
+                <div className="font-game text-white font-bold" style={{ fontSize: 'clamp(1.5rem, 5vw, 1.6rem)' }}>
                   {stage.title}
                 </div>
-                <div className="font-game text-white/80 mt-1"
+                <div className="font-game text-white mt-2"
 style={{
-  fontSize: 'clamp(0.95rem, 3.8vw, 1.1rem)',
-  lineHeight: 1.3,
+  fontSize: 'clamp(1.05rem, 3.8vw, 1.1rem)',
+  lineHeight: 1,
+  fontWeight: 700,
 }}>{stage.subTitle}</div>
                 {unlocked && (
-                  <div className="font-game text-white/70 mt-2"
+                  <div className="font-game text-white/80 mt-2" 
                   style={{
-                    fontSize: 'clamp(0.75rem, 3vw, 0.9rem)',
+                    fontSize: 'clamp(1.05rem, 3vw, 0.9rem)',
                     lineHeight: 1.35,
                   }}>{stage.desc}</div>
                 )}
