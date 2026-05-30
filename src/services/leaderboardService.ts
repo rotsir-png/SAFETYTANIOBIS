@@ -27,7 +27,6 @@ export { savePlayerToSupabase as upsertPlayer } from './identityService';
 function primaryId(profile: PlayerProfile): string {
   return profile.lineUserId ?? profile.employeeId;
 }
-
 // ── Stage clears ──────────────────────────────────────────────────────────────
 
 export async function recordStageClear(
@@ -38,8 +37,14 @@ export async function recordStageClear(
   try {
     const res = await fetch('/api/stage-clear', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ profile, stageId, score }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        profile,
+        stageId,
+        score,
+      }),
     });
 
     if (!res.ok) {
@@ -50,23 +55,8 @@ export async function recordStageClear(
     console.warn('[Leaderboard] recordStageClear threw:', err);
   }
 }
-  if (!supabase) {
-    console.warn('[Leaderboard] Supabase not configured. Stage clear not persisted remotely.');
-    return;
-  }
-  try {
-    const { error } = await supabase.from('stage_clears').insert({
-      line_user_id: primaryId(profile),
-      employee_id:  profile.employeeId,
-      department:   profile.department,
-      stage_id:     stageId,
-      score,
-      cleared_at:   new Date().toISOString(),
-    });
-    if (error) console.warn('[Leaderboard] recordStageClear error:', error.message);
-  } catch (err) {
-    console.warn('[Leaderboard] recordStageClear threw:', err);
-  }
+
+// ── Endless scores ────────────────────────────────────────────────────────────
 
 // ── Endless scores ────────────────────────────────────────────────────────────
 
