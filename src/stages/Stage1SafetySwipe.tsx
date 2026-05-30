@@ -247,12 +247,10 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
         safeTimeout(() => setImpactType(null), 350);
 
         if (isPerfect) {
-          perfectSfx.current.currentTime = 0;
           playSfx(perfectSfx.current);
           setFlashType('perfect');
           showPopup(`PERFECT +${POINTS_CORRECT}`, '#facc15', 50, 50);
         } else {
-          correctSfx.current.currentTime = 0;
           playSfx(correctSfx.current);
           setFlashType('correct');
           showPopup(`+${POINTS_CORRECT}`, '#22c55e', 50, 55);
@@ -262,7 +260,6 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
         scoreRef.current = ns;
         setScore(ns);
 
-        wrongSfx.current.currentTime = 0;
         playSfx(wrongSfx.current);
 
         setImpactType('wrong');

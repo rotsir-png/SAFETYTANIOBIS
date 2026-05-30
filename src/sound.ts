@@ -41,18 +41,23 @@ export async function unlockAudioElements(audios: HTMLAudioElement[]) {
   );
 }
 
+let lastSfxTime = 0;
+
 export function playSfx(audio: HTMLAudioElement) {
   if (!isSoundEnabled()) return;
 
+  const now = Date.now();
+
+  if (now - lastSfxTime < 90) return;
+  lastSfxTime = now;
+
   try {
-    audio.pause();
     audio.currentTime = 0;
-    audio.muted = false;
 
     const p = audio.play();
     if (p) p.catch(() => {});
   } catch {
-    // กัน mobile / LINE Browser
+    // noop
   }
 }
 
