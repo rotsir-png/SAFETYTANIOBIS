@@ -19,7 +19,7 @@ export function toggleSoundEnabled() {
 }
 
 export async function unlockAudio() {
-  if (audioUnlocked || !isSoundEnabled()) return;
+  if (!isSoundEnabled()) return;
 
   try {
     const audio = new Audio('/sfx/correct.wav');
@@ -40,12 +40,13 @@ export function playSfx(audio: HTMLAudioElement) {
   if (!isSoundEnabled()) return;
 
   try {
-    audio.pause();
-    audio.currentTime = 0;
+    const sfx = audio.cloneNode(true) as HTMLAudioElement;
+    sfx.volume = audio.volume;
+    sfx.currentTime = 0;
 
-    const p = audio.play();
+    const p = sfx.play();
     if (p) p.catch(() => {});
   } catch {
-    // กัน LINE Browser งอแง
+    // กัน LINE Browser / mobile browser
   }
 }
