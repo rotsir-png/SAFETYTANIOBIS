@@ -55,7 +55,7 @@ useEffect(() => {
           })
         : null;
 
-      if (remoteProfile) {
+        if (remoteProfile && isCompleteProfile(remoteProfile)) {
         const merged: PlayerProfile = {
           ...remoteProfile,
           ...identity,
@@ -74,7 +74,7 @@ useEffect(() => {
 
       const local = getProfile();
 
-      if (local) {
+      if (local && isCompleteProfile(local)) {
         const merged: PlayerProfile = {
           ...local,
           lineUserId: local.lineUserId ?? identity.lineUserId,
@@ -101,7 +101,8 @@ useEffect(() => {
 }, []);
 
   const refreshProgress = useCallback(() => setProgress(getProgress()), []);
-
+  const isCompleteProfile = (p: PlayerProfile | null) =>
+  !!p?.employeeId && !!p?.department;
   const handleRegistrationDone = useCallback(() => {
     const p = getProfile();
     setProfile(p);
