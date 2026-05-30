@@ -3,7 +3,6 @@ import TimerBar from '../components/TimerBar';
 import ScorePopupLayer, { useScorePopup } from '../components/ScorePopup';
 import PauseButton, { usePause } from '../components/PauseButton';
 import { swipeCards, GAME_DURATION, POINTS_CORRECT, POINTS_WRONG } from '../gameData';
-import { playSfx, unlockAudioElements, stopSfx } from '../sound';
 
 interface Props {
   onComplete: (score: number) => void;
@@ -93,10 +92,6 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [hint, setHint] = useState<'right' | 'left' | null>(null);
 
-  const correctSfx = useRef(new Audio('/sfx/correct.wav'));
-  const wrongSfx = useRef(new Audio('/sfx/wrong.wav'));
-  const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
-
   const startXRef = useRef(0);
   const activePointerIdRef = useRef<number | null>(null);
   const latestDragXRef = useRef(0);
@@ -133,7 +128,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
       }
 
       timeoutsRef.current.forEach(clearTimeout);
-      timeoutsRef.current = [];
+timeoutsRef.current = [];
+
+if (rafRef.current !== null) {
+  cancelAnimationFrame(rafRef.current);
+  rafRef.current = null;
+}
 
       onComplete(0);
     },
@@ -144,28 +144,8 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
-
-  useEffect(() => {
-    correctSfx.current.volume = 0.5;
-    wrongSfx.current.volume = 0.6;
-    perfectSfx.current.volume = 0.7;
-  }, []);
-  
   const startGame = useCallback(() => {
-    unlockAudioElements([
-      correctSfx.current,
-      wrongSfx.current,
-      perfectSfx.current,
-    ]);
-  
     setShowIntro(false);
-  }, []);
-  useEffect(() => {
-    return () => {
-      stopSfx(correctSfx.current);
-      stopSfx(wrongSfx.current);
-      stopSfx(perfectSfx.current);
-    };
   }, []);
 
   useEffect(() => {
@@ -186,7 +166,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
             processingRef.current = true;
 
             timeoutsRef.current.forEach(clearTimeout);
-            timeoutsRef.current = [];
+timeoutsRef.current = [];
+
+if (rafRef.current !== null) {
+  cancelAnimationFrame(rafRef.current);
+  rafRef.current = null;
+}
 
             onComplete(scoreRef.current);
           }
@@ -205,7 +190,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
       }
 
       timeoutsRef.current.forEach(clearTimeout);
-      timeoutsRef.current = [];
+timeoutsRef.current = [];
+
+if (rafRef.current !== null) {
+  cancelAnimationFrame(rafRef.current);
+  rafRef.current = null;
+}
     };
   }, [onComplete, showIntro]);
 
@@ -222,7 +212,12 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
       }
 
       timeoutsRef.current.forEach(clearTimeout);
-      timeoutsRef.current = [];
+timeoutsRef.current = [];
+
+if (rafRef.current !== null) {
+  cancelAnimationFrame(rafRef.current);
+  rafRef.current = null;
+}
 
       onComplete(finalScore);
     },
@@ -247,11 +242,9 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
         safeTimeout(() => setImpactType(null), 350);
 
         if (isPerfect) {
-          playSfx(perfectSfx.current);
           setFlashType('perfect');
           showPopup(`PERFECT +${POINTS_CORRECT}`, '#facc15', 50, 50);
         } else {
-          playSfx(correctSfx.current);
           setFlashType('correct');
           showPopup(`+${POINTS_CORRECT}`, '#22c55e', 50, 55);
         }
@@ -259,8 +252,6 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
         const ns = Math.max(0, scoreRef.current + POINTS_WRONG);
         scoreRef.current = ns;
         setScore(ns);
-
-        playSfx(wrongSfx.current);
 
         setImpactType('wrong');
         setScreenShake(true);
@@ -322,40 +313,75 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
     }
   }, [dragX, handleSwipe, triggerNearMiss]);
 
-  const onTouchStart = useCallback((e: React.TouchEvent) => {
-    if (processingRef.current || pausedRef.current) return;
-
-    startXRef.current = e.touches[0].clientX;
-    setIsDragging(true);
-  }, []);
-
-  const onTouchMove = useCallback(
-    (e: React.TouchEvent) => {
-      if (!isDragging || processingRef.current || pausedRef.current) return;
-
-      const dx = e.touches[0].clientX - startXRef.current;
+  const updateDragWithRaf = useCallback((nextX: number) => {
+    latestDragXRef.current = nextX;
+  
+    if (rafRef.current !== null) return;
+  
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+  
+      const dx = latestDragXRef.current;
       setDragX(dx);
       setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
-    },
-    [isDragging]
-  );
-
-  const onMouseDown = useCallback((e: React.MouseEvent) => {
-    if (processingRef.current || pausedRef.current) return;
-
+    });
+  }, []);
+  
+  const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (processingRef.current || pausedRef.current || doneRef.current) return;
+  
+    activePointerIdRef.current = e.pointerId;
     startXRef.current = e.clientX;
+    latestDragXRef.current = 0;
+  
+    e.currentTarget.setPointerCapture(e.pointerId);
     setIsDragging(true);
   }, []);
-
-  const onMouseMove = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isDragging || processingRef.current || pausedRef.current) return;
-
-      const dx = e.clientX - startXRef.current;
-      setDragX(dx);
-      setHint(dx > 30 ? 'right' : dx < -30 ? 'left' : null);
+  
+  const onPointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (
+        !isDragging ||
+        processingRef.current ||
+        pausedRef.current ||
+        doneRef.current ||
+        activePointerIdRef.current !== e.pointerId
+      ) {
+        return;
+      }
+  
+      updateDragWithRaf(e.clientX - startXRef.current);
     },
-    [isDragging]
+    [isDragging, updateDragWithRaf]
+  );
+  
+  const onPointerUp = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (activePointerIdRef.current !== e.pointerId) return;
+  
+      activePointerIdRef.current = null;
+  
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+        setDragX(latestDragXRef.current);
+      }
+  
+      finishDrag();
+    },
+    [finishDrag]
+  );
+  
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (activePointerIdRef.current !== e.pointerId) return;
+  
+      activePointerIdRef.current = null;
+      setIsDragging(false);
+      setHint(null);
+      setDragX(0);
+    },
+    []
   );
 
   const card = cards[cardIndex % cards.length];
@@ -590,17 +616,14 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
               transform: isDragging
                 ? `translateX(${dragX}px) rotate(${rotation}deg) scale(${1 + swipeOpacity * 0.04})`
                 : undefined,
-              transition: isDragging ? 'none' : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
+                transition: isDragging ? 'none' : 'transform 180ms cubic-bezier(.2,1.4,.4,1)',
+                touchAction: 'none',
             }}
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={finishDrag}
-            onMouseDown={onMouseDown}
-            onMouseMove={onMouseMove}
-            onMouseUp={finishDrag}
-            onMouseLeave={() => {
-              if (isDragging) finishDrag();
-            }}
+            onPointerDown={onPointerDown}
+onPointerMove={onPointerMove}
+onPointerUp={onPointerUp}
+onPointerCancel={onPointerCancel}
+onLostPointerCapture={finishDrag}
           >
             <div
               className="text-[clamp(4.5rem,18vw,6.5rem)]"
