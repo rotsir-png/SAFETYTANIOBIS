@@ -44,21 +44,8 @@ export async function unlockAudioElements(audios: HTMLAudioElement[]) {
 let lastSfxTime = 0;
 
 export function playSfx(audio: HTMLAudioElement) {
-  if (!isSoundEnabled()) return;
-
-  const now = Date.now();
-
-  if (now - lastSfxTime < 90) return;
-  lastSfxTime = now;
-
-  try {
-    audio.currentTime = 0;
-
-    const p = audio.play();
-    if (p) p.catch(() => {});
-  } catch {
-    // noop
-  }
+  // ปิด SFX ชั่วคราวเพื่อกัน LINE Browser ค้าง
+  return;
 }
 
 export function stopSfx(audio: HTMLAudioElement) {
