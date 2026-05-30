@@ -25,7 +25,6 @@ export default function TitleScreen({
 }: Props) {
   const [visible, setVisible] = useState(false);
   const [endlessPopFeedback, setEndlessPopFeedback] = useState(false);
-  const [versionTaps, setVersionTaps] = useState(0);
   const [soundEnabled, setSoundEnabled] = useState(isSoundEnabled());
 
   const isEndlessUnlocked = ENDLESS_REQUIRES_STAGES.every(s =>
@@ -50,17 +49,6 @@ export default function TitleScreen({
     const next = toggleSoundEnabled();
     setSoundEnabled(next);
   }, []);
-
-  const handleVersionTap = useCallback(() => {
-    setVersionTaps(n => {
-      const next = n + 1;
-      if (next >= 5) {
-        onResetProfile();
-        return 0;
-      }
-      return next;
-    });
-  }, [onResetProfile]);
 
   return (
     <div
@@ -238,17 +226,11 @@ export default function TitleScreen({
           🏆Leaderboard
         </button>
       </div>
-
-      <button
-        onClick={handleVersionTap}
-        className="relative z-10 mt-auto font-game text-white/35 text-xs pt-3 pb-1 active:text-white/60 transition-colors"
-        style={{ background: 'none', border: 'none' }}
-      >
-        By TANIOBIS HSE Department
-        {versionTaps > 0 && versionTaps < 5 && (
-          <span className="ml-2 text-white/20">{'·'.repeat(versionTaps)}</span>
-        )}
-      </button>
+      <div
+  className="relative z-10 mt-auto font-game text-white/25 text-xs pt-3 pb-1"
+>
+  by TANIOBIS HSE Department
+</div>
     </div>
   );
 }
