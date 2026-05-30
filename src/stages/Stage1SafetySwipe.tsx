@@ -223,12 +223,6 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
         const ns = scoreRef.current + POINTS_CORRECT;
         scoreRef.current = ns;
         setScore(ns);
-
-        if (ns >= CLEAR_SCORE) {
-          clearStage(ns);
-          return;
-        }
-
         setImpactType(isPerfect ? 'perfect' : 'correct');
         safeTimeout(() => setImpactType(null), 350);
 
@@ -506,8 +500,8 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
                 }}
               >
                 {score >= CLEAR_SCORE
-                  ? '🚨 ผ่านแล้ว!'
-                  : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
+  ? '🏆 ผ่านเกณฑ์แล้ว! เก็บคะแนนต่อ'
+  : `🎯 อีก ${CLEAR_SCORE - score} คะแนนจะผ่าน!`}
               </span>
             </div>
           </div>

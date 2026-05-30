@@ -134,7 +134,8 @@ if (p) {
   console.warn('[StageClear] no profile', { stage, score });
 }
     }
-  
+
+    
     setResult({ score, stage, passed, passScore });
     setCurrentStage(stage);
     setScreen('result');
