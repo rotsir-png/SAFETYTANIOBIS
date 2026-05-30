@@ -232,12 +232,14 @@ export default function TitleScreen({
 >
   by TANIOBIS HSE Department
 </div>
+{/* DEV RESET
 <button
   onClick={onResetProfile}
   className="relative z-20 mt-2 rounded-xl border border-red-400/40 bg-red-500/20 px-4 py-2 font-game text-xs text-red-100 active:scale-95"
 >
-  Reset Progress
+  DEV RESET
 </button>
+*/}
     </div>
   );
 }
