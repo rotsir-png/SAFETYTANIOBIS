@@ -3,7 +3,7 @@ import TimerBar from '../components/TimerBar';
 import ScorePopupLayer, { useScorePopup } from '../components/ScorePopup';
 import PauseButton, { usePause } from '../components/PauseButton';
 import { swipeCards, GAME_DURATION, POINTS_CORRECT, POINTS_WRONG } from '../gameData';
-import { playSfx, unlockAudio } from '../sound';
+import { playSfx, unlockAudioElements, stopSfx } from '../sound';
 
 interface Props {
   onComplete: (score: number) => void;
@@ -98,11 +98,10 @@ export default function Stage1SafetySwipe({ onComplete }: Props) {
   const perfectSfx = useRef(new Audio('/sfx/perfect.wav'));
 
   const startXRef = useRef(0);
-const activePointerIdRef = useRef<number | null>(null);
-const latestDragXRef = useRef(0);
-const rafRef = useRef<number | null>(null);
-
-const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
+  const latestDragXRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const processingRef = useRef(false);
   const scoreRef = useRef(0);
   const pausedRef = useRef(false);
@@ -150,6 +149,23 @@ const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     correctSfx.current.volume = 0.5;
     wrongSfx.current.volume = 0.6;
     perfectSfx.current.volume = 0.7;
+  }, []);
+  
+  const startGame = useCallback(() => {
+    unlockAudioElements([
+      correctSfx.current,
+      wrongSfx.current,
+      perfectSfx.current,
+    ]);
+  
+    setShowIntro(false);
+  }, []);
+  useEffect(() => {
+    return () => {
+      stopSfx(correctSfx.current);
+      stopSfx(wrongSfx.current);
+      stopSfx(perfectSfx.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -360,10 +376,7 @@ const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
     <>
       {showIntro && (
         <div
-        onPointerUp={() => {
-          unlockAudio();
-          setShowIntro(false);
-        }}
+        onPointerUp={startGame}
           className="absolute inset-0 z-[999] flex flex-col items-center justify-center bg-black/85 px-6 text-center"
         >
           <div

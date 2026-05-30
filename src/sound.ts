@@ -1,7 +1,5 @@
 const SOUND_KEY = 'safety_game_sound_enabled';
 
-let audioUnlocked = false;
-
 export function isSoundEnabled() {
   const saved = localStorage.getItem(SOUND_KEY);
   return saved !== 'false';
@@ -18,35 +16,51 @@ export function toggleSoundEnabled() {
   return next;
 }
 
-export async function unlockAudio() {
+export async function unlockAudioElements(audios: HTMLAudioElement[]) {
   if (!isSoundEnabled()) return;
 
-  try {
-    const audio = new Audio('/sfx/correct.wav');
-    audio.volume = 0;
-    audio.muted = true;
+  await Promise.allSettled(
+    audios.map(async (audio) => {
+      try {
+        const oldVolume = audio.volume;
 
-    await audio.play();
+        audio.muted = true;
+        audio.volume = 0;
+        audio.currentTime = 0;
 
-    audio.pause();
-    audio.currentTime = 0;
-    audioUnlocked = true;
-  } catch {
-    // LINE / iOS บางทีไม่ให้ผ่าน ไม่ต้อง crash
-  }
+        await audio.play();
+
+        audio.pause();
+        audio.currentTime = 0;
+        audio.volume = oldVolume;
+        audio.muted = false;
+      } catch {
+        audio.muted = false;
+      }
+    })
+  );
 }
 
 export function playSfx(audio: HTMLAudioElement) {
   if (!isSoundEnabled()) return;
 
   try {
-    const sfx = audio.cloneNode(true) as HTMLAudioElement;
-    sfx.volume = audio.volume;
-    sfx.currentTime = 0;
+    audio.pause();
+    audio.currentTime = 0;
+    audio.muted = false;
 
-    const p = sfx.play();
+    const p = audio.play();
     if (p) p.catch(() => {});
   } catch {
-    // กัน LINE Browser / mobile browser
+    // กัน mobile / LINE Browser
+  }
+}
+
+export function stopSfx(audio: HTMLAudioElement) {
+  try {
+    audio.pause();
+    audio.currentTime = 0;
+  } catch {
+    // noop
   }
 }
