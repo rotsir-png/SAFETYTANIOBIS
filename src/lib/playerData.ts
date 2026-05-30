@@ -13,21 +13,26 @@ export async function savePlayer(data: {
     return false;
   }
 
+  const payload: Record<string, unknown> = {
+    line_user_id: data.line_user_id,
+    display_name: data.display_name,
+    picture_url: data.picture_url ?? null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (data.employee_id !== undefined) {
+    payload.employee_id = data.employee_id;
+  }
+
+  if (data.department !== undefined) {
+    payload.department = data.department;
+  }
+
   const { error } = await supabase
     .from('players')
-    .upsert(
-      {
-        line_user_id: data.line_user_id,
-        display_name: data.display_name,
-        picture_url: data.picture_url ?? null,
-        employee_id: data.employee_id ?? null,
-        department: data.department ?? null,
-        updated_at: new Date().toISOString(),
-      },
-      {
-        onConflict: 'line_user_id',
-      }
-    );
+    .upsert(payload, {
+      onConflict: 'line_user_id',
+    });
 
   if (error) {
     console.error('[savePlayer] ERROR', error);
