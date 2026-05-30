@@ -181,10 +181,12 @@ if (p) {
 
   // Hidden dev reset: 5-tap on version text in TitleScreen
   const handleResetProfile = useCallback(() => {
+    localStorage.clear();
     clearProfile();
     setProfile(null);
     setProgress(getProgress());
     setScreen('register');
+    window.location.reload();
   }, []);
 
   useEffect(() => {
