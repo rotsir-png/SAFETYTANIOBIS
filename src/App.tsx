@@ -292,7 +292,7 @@ if (p) {
     onDone={handleRegistrationDone}
   />
 )}
-      {screen === 'edit_profile' && profile && !profile.profileLocked && (
+      {screen === 'edit_profile' && profile && (
         <RegistrationScreen
           // Pass lineIdentity so RegistrationScreen can preserve lineUserId on save.
           // If lineIdentity is somehow null, fall back to the lineUserId already on
