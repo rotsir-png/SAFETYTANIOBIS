@@ -318,7 +318,7 @@ if (p) {
           onCampaign={() => setScreen('campaign')}
           onEndless={() => setScreen('title')}
           onLeaderboard={() => setScreen('leaderboard')}
-          onEditProfile={profile.profileLocked ? undefined : () => setScreen('edit_profile')}
+          onEditProfile={() => setScreen('edit_profile')}
           onResetProfile={handleResetProfile}
         />
       )}
@@ -397,7 +397,7 @@ if (p) {
     onCampaign={() => setScreen('campaign')}
     onEndless={() => setScreen('title')}
     onLeaderboard={() => setScreen('leaderboard')}
-    onEditProfile={profile.profileLocked ? undefined : () => setScreen('edit_profile')}
+    onEditProfile={() => setScreen('edit_profile')}
     onResetProfile={handleResetProfile}
   />
 )}
