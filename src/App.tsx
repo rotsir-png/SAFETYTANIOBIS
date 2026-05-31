@@ -56,9 +56,20 @@ useEffect(() => {
         : null;
         if (identity.verified && !remoteProfile) {
           clearProfile();
-          localStorage.removeItem('factoryChaos_profile');
-          localStorage.removeItem('factoryChaos_progress');
-          localStorage.removeItem('factoryChaos_stageProgress');
+        
+          // ล้าง local save/progress ทุกตัวที่เป็นของเกมนี้
+          Object.keys(localStorage).forEach((key) => {
+            if (
+              key.includes('factoryChaos') ||
+              key.includes('profile') ||
+              key.includes('progress') ||
+              key.includes('stage') ||
+              key.includes('unlock')
+            ) {
+              localStorage.removeItem(key);
+            }
+          });
+        
           setProfile(null);
           setProgress(getProgress());
           setScreen('register');
