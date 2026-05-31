@@ -86,3 +86,18 @@ export async function initLiff(): Promise<LineIdentity> {
 export function getLineIdentity(): LineIdentity | null {
   return _identity;
 }
+export function logoutLiffForDemo() {
+  _identity = null;
+
+  try {
+    if (liff.isLoggedIn()) {
+      liff.logout();
+    }
+  } catch (err) {
+    console.warn('[LIFF] logout failed', err);
+  }
+
+  localStorage.clear();
+
+  window.location.reload();
+}

@@ -28,7 +28,7 @@ const stages = [
   },
   {
     id: 3,
-    title: 'Accident Replay',
+    title: 'Accident Investigate',
     subTitle: 'ด่าน 3',
     emoji: '⛑️',
     desc: 'สืบ หา สาเหตุ',
