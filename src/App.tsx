@@ -54,7 +54,16 @@ useEffect(() => {
             return null;
           })
         : null;
-
+        if (identity.verified && !remoteProfile) {
+          clearProfile();
+          localStorage.removeItem('factoryChaos_profile');
+          localStorage.removeItem('factoryChaos_progress');
+          localStorage.removeItem('factoryChaos_stageProgress');
+          setProfile(null);
+          setProgress(getProgress());
+          setScreen('register');
+          return;
+        }
         if (remoteProfile && isCompleteProfile(remoteProfile)) {
         const merged: PlayerProfile = {
           ...remoteProfile,
