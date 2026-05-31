@@ -74,7 +74,7 @@ useEffect(() => {
 
       const local = getProfile();
 
-      if (local && isCompleteProfile(local)) {
+      if (!identity.verified && local && isCompleteProfile(local)) {
         const merged: PlayerProfile = {
           ...local,
           lineUserId: local.lineUserId ?? identity.lineUserId,
