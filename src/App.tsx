@@ -31,94 +31,102 @@ export default function App() {
   const [liffReady, setLiffReady] = useState(false);
 
   // Initialise LIFF and resolve identity on mount
-useEffect(() => {
-  (async () => {
-    try {
-      const identity = await initLiff();
-
-      console.log('[LIFF identity]', identity);
-
-      setLineIdentity(identity);
-
-      const savedPlayer = await savePlayer({
-        line_user_id: identity.lineUserId,
-        display_name: identity.displayName,
-        picture_url: identity.pictureUrl ?? null,
-      });
-
-      console.log('[savePlayer result]', savedPlayer);
-
-      const remoteProfile = identity.verified
-        ? await fetchProfileByLineUserId(identity.lineUserId).catch((err) => {
-            console.warn('[fetchProfileByLineUserId failed]', err);
-            return null;
-          })
-        : null;
+  useEffect(() => {
+    (async () => {
+      try {
+        const identity = await initLiff();
+  
+        console.log('[LIFF identity]', identity);
+  
+        setLineIdentity(identity);
+  
+        const remoteProfile = identity.verified
+          ? await fetchProfileByLineUserId(identity.lineUserId).catch((err) => {
+              console.warn('[fetchProfileByLineUserId failed]', err);
+              return null;
+            })
+          : null;
+  
+        // ถ้าเป็น LINE จริง แต่ไม่เจอ player ใน Supabase
+        // แปลว่า admin ลบ players แล้ว → ล้าง local save/progress และให้ลงทะเบียนใหม่
         if (identity.verified && !remoteProfile) {
+          console.warn('[App init] verified LINE user but no remote player. Reset local save.');
+  
           clearProfile();
-        
-          // ล้าง local save/progress ทุกตัวที่เป็นของเกมนี้
-          Object.keys(localStorage).forEach((key) => {
-            if (
-              key.includes('factoryChaos') ||
-              key.includes('profile') ||
-              key.includes('progress') ||
-              key.includes('stage') ||
-              key.includes('unlock')
-            ) {
-              localStorage.removeItem(key);
-            }
+  
+          setProfile(null);
+          setProgress(getProgress());
+  
+          await savePlayer({
+            line_user_id: identity.lineUserId,
+            display_name: identity.displayName,
+            picture_url: identity.pictureUrl ?? null,
           });
-        
+  
+          setScreen('register');
+          return;
+        }
+  
+        // ถ้าเจอ remote profile ครบแล้ว → เข้าเกมได้เลย
+        if (remoteProfile && isCompleteProfile(remoteProfile)) {
+          const merged: PlayerProfile = {
+            ...remoteProfile,
+            lineUserId: identity.lineUserId,
+            displayName: identity.displayName,
+            pictureUrl: identity.pictureUrl,
+            profileLocked: true,
+          };
+  
+          saveProfile(merged);
+          setProfile(merged);
+          setProgress(getProgress());
+          setScreen('title');
+          return;
+        }
+  
+        // ถ้าเป็น LINE จริง แต่ remote ยังไม่ครบ employeeId / department
+        // ให้ไปหน้า register ต่อ
+        if (identity.verified) {
+          await savePlayer({
+            line_user_id: identity.lineUserId,
+            display_name: identity.displayName,
+            picture_url: identity.pictureUrl ?? null,
+          });
+  
           setProfile(null);
           setProgress(getProgress());
           setScreen('register');
           return;
         }
-        if (remoteProfile && isCompleteProfile(remoteProfile)) {
-        const merged: PlayerProfile = {
-          ...remoteProfile,
-          ...identity,
-          lineUserId: identity.lineUserId,
-          displayName: identity.displayName,
-          pictureUrl: identity.pictureUrl,
-          profileLocked: true,
-        };
-
-        saveProfile(merged);
-        setProfile(merged);
-        setProgress(getProgress());
-        setScreen('title');
-        return;
+  
+        // Dev mode / เปิดนอก LINE ใช้ local ได้
+        const local = getProfile();
+  
+        if (local && isCompleteProfile(local)) {
+          const merged: PlayerProfile = {
+            ...local,
+            lineUserId: local.lineUserId ?? identity.lineUserId,
+            displayName: local.displayName ?? identity.displayName,
+            pictureUrl: local.pictureUrl ?? identity.pictureUrl,
+            profileLocked: local.profileLocked,
+          };
+  
+          saveProfile(merged);
+          setProfile(merged);
+          setProgress(getProgress());
+          setScreen('title');
+          return;
+        }
+  
+        setScreen('register');
+      } catch (err) {
+        console.error('[App init failed]', err);
+        setScreen('register');
+      } finally {
+        setLiffReady(true);
       }
-
-      const local = getProfile();
-
-      if (!identity.verified && local && isCompleteProfile(local)) {
-        const merged: PlayerProfile = {
-          ...local,
-          lineUserId: local.lineUserId ?? identity.lineUserId,
-          displayName: local.displayName ?? identity.displayName,
-          pictureUrl: local.pictureUrl ?? identity.pictureUrl,
-          profileLocked: identity.verified ? true : local.profileLocked,
-        };
-
-        saveProfile(merged);
-        setProfile(merged);
-        setProgress(getProgress());
-        setScreen('title');
-        return;
-      }
-
-      setScreen('register');
-    } catch (err) {
-      console.error('[App init failed]', err);
-      setScreen('register');
-    } finally {
-      setLiffReady(true);
-    }
-  })();
-}, []);
+    })();
+  }, []);
 
   const refreshProgress = useCallback(() => setProgress(getProgress()), []);
   const isCompleteProfile = (p: PlayerProfile | null) =>
