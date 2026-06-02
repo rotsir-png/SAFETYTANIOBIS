@@ -11,7 +11,7 @@ import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
 import Stage2PPERush from './stages/Stage2PPERush';
-import Stage3TapHazard from './stages/Stage3TapHazard';
+import Stage3AccidentInvestigate from './stages/Stage3AccidentInvestigate';
 import Stage4ClawMachine from './stages/Stage4ClawMachine';
 import Stage5HazardDefense from './stages/Stage5HazardDefense';
 import Stage6MachineSync from './stages/Stage6MachineSync';
@@ -134,6 +134,7 @@ useEffect(() => {
     const passScore =
   stage === 1 ? 300 :
   stage === 2 ? 400 :
+  stage === 3 ? 400 :
   stage === 7 ? 0 :
   stage === 8 ? 1000 :
   500;
@@ -369,12 +370,13 @@ if (p) {
         />
       )}
 
-      {screen === 'stage3' && (
-        <Stage3TapHazard
-          key={`s3-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 3)}
-        />
-      )}
+{screen === 'stage3' && (
+  <Stage3AccidentInvestigate
+    key={`s3-${currentStage}`}
+    onExit={() => setScreen('campaign')}
+    onClear={(score) => handleStageComplete(score, 3)}
+  />
+)}
 
       {screen === 'stage4' && (
         <Stage4ClawMachine

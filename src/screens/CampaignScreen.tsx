@@ -48,8 +48,8 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
   const isUnlocked = (id: number) => {
     if (id === 1) return true;
-    if (id === 2) return progress.passedStages.includes(1);
-    if (id === 3) return false; // Coming Soon
+    if (id === 2) return true;//progress.passedStages.includes(1);
+    if (id === 3) return true;//progress.passedStages.includes(2);
     return false;
   };
   const isPassed = (id: number) => progress.passedStages.includes(id);
