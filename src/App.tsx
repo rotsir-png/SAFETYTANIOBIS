@@ -143,10 +143,7 @@ useEffect(() => {
   stage === 3 ? 500 :
   0;
   
-  const passed =
-  stage === 7
-    ? score >= 0
-    : score >= passScore;
+  const passed = score >= passScore;
 
 if (!isStageOpenByDate(stage)) {
   console.warn('[StageComplete blocked: stage not open yet]', { stage, score });
@@ -390,40 +387,6 @@ if (p) {
         />
       )}
 
-      {screen === 'stage4' && (
-        <Stage4ClawMachine
-          key={`s4-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 4)}
-        />
-      )}
-
-      {screen === 'stage5' && (
-        <Stage5HazardDefense
-          key={`s5-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 5)}
-        />
-      )}
-
-      {screen === 'stage6' && (
-        <Stage6MachineSync
-          key={`s6-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 6)}
-        />
-      )}
-
-      {screen === 'stage7' && (
-        <Stage7ForklifPanic
-          key={`s7-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 7)}
-        />
-      )}
-
-{screen === 'stage8' && (
-  <Stage8FinalChaos
-    key={`s8-${currentStage}`}
-    onComplete={(score) => handleStageComplete(score, 8)}
-  />
-)}
 
 {screen === 'endless' && profile && (
   <TitleScreen
