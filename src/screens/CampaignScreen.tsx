@@ -6,18 +6,7 @@ interface Props {
   onStage: (stage: number) => void;
   onBack: () => void;
 }
-const STAGE_UNLOCK_DATES: Record<number, string> = {
-  2: '2026-06-08T08:00:00+07:00',
-  3: '2026-06-11T08:00:00+07:00',
-};
 
-const isDateUnlocked = (stageId: number) => {
-  const unlockDate = STAGE_UNLOCK_DATES[stageId];
-
-  if (!unlockDate) return true;
-
-  return new Date() >= new Date(unlockDate);
-};
 const stages = [
   {
     id: 1,
