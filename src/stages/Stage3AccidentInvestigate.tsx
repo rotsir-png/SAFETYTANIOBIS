@@ -102,10 +102,7 @@ export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
           🔒 แก้ปริศนาเพื่อเปิดแฟ้มคดี
         </div>
 
-        <div
-  className={[
-  ].join(" ")}
->
+        <div className="relative mt-2 flex-1 overflow-visible rounded-[22px] border border-white/10 bg-black/45 p-2 shadow-2xl">
           <div className="rounded-[22px] border border-yellow-300/30 bg-yellow-300/10 px-3 py-3 text-center">
             <div className="font-black text-yellow-300 text-[clamp(17px,4vw,22px)]">
               🔒 CASE LOCKED
@@ -127,7 +124,7 @@ export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
           {!unlocked ? (
             <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-900/90 p-4">
               <div className="text-center font-black text-yellow-300 text-[clamp(17px,4vw,22px)]">
-                🧩 SECURITY PUZZLE
+              📄 REDACTED REPORT
               </div>
 
               <div className="mt-2 rounded-2xl bg-black/55 px-3 py-3 text-center font-black leading-snug text-[clamp(18px,4.5vw,24px)]">
