@@ -145,15 +145,6 @@ useEffect(() => {
   
   const passed = score >= passScore;
 
-if (!isStageOpenByDate(stage)) {
-  console.warn('[StageComplete blocked: stage not open yet]', { stage, score });
-
-  setResult({ score, stage, passed: false, passScore });
-  setCurrentStage(stage);
-  setScreen('result');
-  return;
-}
-
 if (passed) {
   unlockNextStage(stage);
       refreshProgress();
