@@ -86,7 +86,6 @@ if (!empId) {
 
     onDone();
   };
-
   return (
     <div
       className="flex flex-col h-full overflow-hidden relative"
