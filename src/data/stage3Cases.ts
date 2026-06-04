@@ -1,64 +1,75 @@
-export type Stage3Puzzle = {
-    id: string;
-    question: string;
-    choices: string[];
-    answer: string;
-    unlockTitle: string;
-    unlockedLines: string[];
-  };
-  
-  export type Stage3Case = {
-    id: string;
-    title: string;
-    subtitle: string;
-    lesson: string;
-    puzzles: Stage3Puzzle[];
-  };
-  
-  export const stage3Cases: Stage3Case[] = [
-    {
-      id: "case_001",
-      title: "Control Cabinet Smoke",
-      subtitle: "พบควันออกจากตู้ Control ระบบ Pump Ammonia",
-      lesson:
-        "แรงสั่นสะเทือนต่อเนื่องและอุปกรณ์ที่เสื่อมสภาพ อาจทำให้จุดต่อไฟฟ้าหลวม เกิดความร้อนสะสม และนำไปสู่อุปกรณ์เสียหายได้",
-      puzzles: [
-        {
-          id: "p1",
-          question: "Motor Pump มี ______ ผิดปกติ",
-          choices: ["การสั่นสะเทือน", "น้ำรั่ว", "สนิม", "เสียงเตือน"],
-          answer: "การสั่นสะเทือน",
-          unlockTitle: "📂 EVIDENCE UNLOCKED",
-          unlockedLines: [
-            "พบ Breaker 2K2 Trip",
-            "พบ Contactor หลอมละลาย",
-            "Motor Pump มีการสั่นสะเทือนผิดปกติ",
-          ],
-        },
-        {
-          id: "p2",
-          question: "อุปกรณ์ภายในตู้เกิด ______ สะสม",
-          choices: ["ความร้อน", "น้ำ", "ฝุ่น", "แรงดัน"],
-          answer: "ความร้อน",
-          unlockTitle: "📂 CAUSE UNLOCKED",
-          unlockedLines: [
-            "แรงสั่นสะเทือนส่งผลต่อตู้ Control",
-            "จุดต่อทองแดงเกิดความร้อน",
-            "อุปกรณ์มีอายุการใช้งานนาน",
-          ],
-        },
-        {
-          id: "p3",
-          question: "ควรจัดทำแผน ______ สำหรับตู้ Control",
-          choices: ["PM", "OT", "PR", "QA"],
-          answer: "PM",
-          unlockTitle: "📂 PREVENTION UNLOCKED",
-          unlockedLines: [
-            "จัดทำแผน PM ตู้ Control",
-            "ตรวจสอบแหล่งกำเนิดแรงสั่นสะเทือน",
-            "พิจารณาย้ายตู้ Control ไปยังจุดที่เหมาะสม",
-          ],
-        },
-      ],
-    },
-  ];
+export type Stage3UnlockStep =
+  | { type: "swipe_card"; title: string }
+  | {
+      type: "redacted_word";
+      title: string;
+      question: string;
+      revealedText: string;
+      answer: string;
+      choices: string[];
+    }
+  | {
+      type: "evidence_snap";
+      title: string;
+      instruction: string;
+      correctEvidenceIds: string[];
+      evidences: { id: string; label: string; icon: string }[];
+    }
+  | { type: "security_verify"; title: string };
+
+export type Stage3Case = {
+  id: string;
+  title: string;
+  subtitle: string;
+  securityLevel: number;
+  unlockSteps: Stage3UnlockStep[];
+  incidentReport: string[];
+  evidence: string[];
+  rootCause: string[];
+  prevention: string[];
+  lesson: string;
+};
+
+export const stage3Cases: Stage3Case[] = [
+  {
+    id: "case_001",
+    title: "ควันออกจากตู้ Control Pump",
+    subtitle: "พบควันออกจากตู้ควบคุมระบบ Pump ระหว่างเดินเครื่อง",
+    securityLevel: 3,
+
+    unlockSteps: [
+      { type: "swipe_card", title: "SCAN ACCESS CARD" },
+      {
+        type: "redacted_word",
+        title: "PASSWORD RECOVERY",
+        question: "ตู้ Control มี ███████ ออกมาระหว่างเดินเครื่อง",
+        revealedText: "ตู้ Control มีควันออกมาระหว่างเดินเครื่อง",
+        answer: "ควัน",
+        choices: ["ควัน", "น้ำมัน", "สนิม", "PPE"],
+      },
+      {
+        type: "evidence_snap",
+        title: "RECOVER EVIDENCE",
+        instruction: "แตะหลักฐานที่เกี่ยวข้องกับคดีนี้",
+        correctEvidenceIds: ["smoke", "control"],
+        evidences: [
+          { id: "smoke", label: "ควัน / กลิ่นไหม้", icon: "💨" },
+          { id: "control", label: "ตู้ Control", icon: "⚡" },
+          { id: "box", label: "กล่องข้างทาง", icon: "📦" },
+          { id: "helmet", label: "หมวกนิรภัย", icon: "⛑️" },
+        ],
+      },
+      { type: "security_verify", title: "SECURITY VERIFICATION" },
+    ],
+
+    incidentReport: [
+      "พบควันออกจากตู้ควบคุมระบบ Pump ระหว่างเดินเครื่อง",
+      "มีการหยุดใช้งานเพื่อตรวจสอบความปลอดภัย",
+    ],
+    evidence: ["พบควัน / กลิ่นไหม้บริเวณตู้ Control", "จุดเสี่ยงเกี่ยวข้องกับระบบไฟฟ้า"],
+    rootCause: ["อาจมีความร้อนสะสมหรือจุดต่อไฟฟ้าผิดปกติ"],
+    prevention: ["หยุดใช้งานทันที", "กั้นพื้นที่", "แจ้งผู้เกี่ยวข้องเพื่อตรวจสอบ"],
+    lesson:
+      "พบควันหรือกลิ่นไหม้จากตู้ไฟฟ้า ต้องหยุดใช้งาน กั้นพื้นที่ และแจ้งผู้เกี่ยวข้องทันที",
+  },
+];
