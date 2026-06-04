@@ -1,36 +1,38 @@
 import React, { useState } from "react";
-import { stage3Accident } from "../data/stage3Accident";
+import { stage3Cases } from "../data/stage3Cases";
 
 type Props = {
   onExit?: () => void;
   onClear?: (score: number) => void;
 };
 
-type Result = null | {
-  correct: boolean;
-  label: string;
-};
-
 const CLEAR_SCORE = 400;
 
 export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
   const [caseIndex, setCaseIndex] = useState(0);
+  const [puzzleIndex, setPuzzleIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const [result, setResult] = useState<Result>(null);
+  const [selected, setSelected] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
   const [cleared, setCleared] = useState(false);
 
-  const accidentCase = stage3Accident[caseIndex % stage3Accident.length];
+  const accidentCase = stage3Cases[caseIndex % stage3Cases.length];
+  const puzzle = accidentCase.puzzles[puzzleIndex];
+  const isLastPuzzle = puzzleIndex >= accidentCase.puzzles.length - 1;
+  const caseClosed = unlocked && isLastPuzzle;
 
-  const handleTapHotspot = (hotspot: (typeof accidentCase.hotspots)[number]) => {
-    if (result) return;
+  const handleChoice = (choice: string) => {
+    if (selected) return;
 
-    const nextScore = Math.max(0, score + (hotspot.correct ? 30 : -30));
+    const correct = choice === puzzle.answer;
+    const nextScore = Math.max(0, score + (correct ? 50 : -20));
 
+    setSelected(choice);
     setScore(nextScore);
-    setResult({
-      correct: hotspot.correct,
-      label: hotspot.label,
-    });
+
+    if (correct) {
+      setUnlocked(true);
+    }
 
     if (!cleared && nextScore >= CLEAR_SCORE) {
       setCleared(true);
@@ -38,25 +40,38 @@ export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
     }
   };
 
-  const handleNext = () => {
-    setCaseIndex((v) => v + 1);
-    setResult(null);
+  const handleContinue = () => {
+    if (!unlocked) {
+      setSelected(null);
+      return;
+    }
+
+    if (isLastPuzzle) {
+      setCaseIndex((v) => v + 1);
+      setPuzzleIndex(0);
+      setSelected(null);
+      setUnlocked(false);
+      return;
+    }
+
+    setPuzzleIndex((v) => v + 1);
+    setSelected(null);
+    setUnlocked(false);
   };
 
   return (
-    <div className="min-h-screen w-full overflow-hidden bg-[#111827] px-2 py-3 text-white">
-      <div className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col">
-        {/* Header */}
+    <div className="min-h-[100dvh] w-full overflow-y-auto bg-[#111827] px-2 py-2 text-white">
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[430px] flex-col pb-28">
         <div className="flex items-start justify-between px-1">
           <div>
             <div className="font-bold text-white/45 text-[clamp(13px,3vw,16px)]">
               ด่าน 3
             </div>
             <h1 className="font-black leading-none text-[clamp(22px,6vw,30px)]">
-              Accident
+              Case
             </h1>
             <div className="mt-1 font-black leading-none text-yellow-300 text-[clamp(22px,6vw,30px)]">
-              Investigate
+              Locked
             </div>
           </div>
 
@@ -79,132 +94,117 @@ export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
           </div>
         </div>
 
-        {/* Timer mock */}
         <div className="mt-2 h-4 overflow-hidden rounded-full bg-white/15">
           <div className="h-full w-[72%] rounded-full bg-green-500" />
         </div>
 
-        <div className="mt-1 flex justify-end pr-1 font-black text-white/80 text-[clamp(13px,3vw,16px)]">
-          45s
+        <div className="mt-1 rounded-2xl border border-white/10 bg-black/45 px-4 py-3 text-center font-black text-[clamp(16px,4vw,21px)]">
+          🔒 แก้ปริศนาเพื่อเปิดแฟ้มคดี
         </div>
 
-        {/* Goal */}
-        <div className="mt-2 mx-auto rounded-2xl border border-white/10 bg-white/10 px-5 py-3 text-center font-black shadow-lg text-[clamp(16px,4vw,21px)]">
-          🎯 อีก {Math.max(CLEAR_SCORE - score, 0)} คะแนนจะผ่าน!
-        </div>
+        <div
+  className={[
+  ].join(" ")}
+>
+          <div className="rounded-[22px] border border-yellow-300/30 bg-yellow-300/10 px-3 py-3 text-center">
+            <div className="font-black text-yellow-300 text-[clamp(17px,4vw,22px)]">
+              🔒 CASE LOCKED
+            </div>
 
-        {/* Instruction */}
-        <div className="mt-2 rounded-2xl border border-white/10 bg-black/45 px-4 py-2 text-center font-black text-[clamp(15px,4vw,20px)]">
-          🔎 แตะต้นเหตุของเหตุการณ์
-        </div>
+            <h2 className="mt-2 font-black leading-tight text-[clamp(20px,5vw,28px)]">
+              {accidentCase.title}
+            </h2>
 
-        {/* Scene */}
-        <div className="relative mt-2 flex-1 overflow-hidden rounded-[26px] border border-white/10 bg-black/45 shadow-2xl">
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-800 via-slate-950 to-black" />
+            <p className="mt-2 font-bold leading-snug text-white/80 text-[clamp(15px,4vw,19px)]">
+              {accidentCase.subtitle}
+            </p>
 
-          {/* factory background blocks */}
-          <div className="absolute inset-0 opacity-25">
-            <div className="absolute left-4 top-8 h-28 w-20 rounded-2xl bg-orange-900" />
-            <div className="absolute right-5 top-12 h-36 w-24 rounded-2xl bg-orange-800" />
-            <div className="absolute bottom-9 left-8 h-20 w-28 rounded-2xl bg-yellow-900" />
-            <div className="absolute bottom-24 right-8 h-16 w-24 rounded-2xl bg-slate-500" />
+            <div className="mt-3 rounded-2xl bg-black/45 px-3 py-2 font-black text-white/70 text-[clamp(14px,3.6vw,17px)]">
+              FILE {puzzleIndex + 1} / {accidentCase.puzzles.length}
+            </div>
           </div>
 
-          <div className="relative flex h-full min-h-[410px] flex-col p-3">
-            <div className="flex items-start justify-between gap-2">
-              <div className="rounded-2xl border border-yellow-300/30 bg-black/70 px-3 py-2 font-black text-yellow-300 text-[clamp(14px,3.8vw,18px)]">
-                {accidentCase.tag} #{String(accidentCase.id).padStart(2, "0")}
+          {!unlocked ? (
+            <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-900/90 p-4">
+              <div className="text-center font-black text-yellow-300 text-[clamp(17px,4vw,22px)]">
+                🧩 SECURITY PUZZLE
               </div>
 
-              <div className="rounded-2xl bg-white/10 px-3 py-2 font-black text-white/70 text-[clamp(12px,3vw,15px)]">
-                CASE {caseIndex + 1}
-              </div>
-            </div>
-
-            <div className="mt-2 rounded-[22px] bg-black/60 px-4 py-3 text-center">
-              <h2 className="font-black leading-tight text-[clamp(22px,6vw,31px)]">
-                {accidentCase.title}
-              </h2>
-              <p className="mt-1 font-bold leading-snug text-white/75 text-[clamp(14px,3.7vw,18px)]">
-                {accidentCase.description}
-              </p>
-            </div>
-
-            {/* Tap scene area */}
-            <div className="relative mt-3 flex-1 overflow-hidden rounded-[24px] border border-white/10 bg-slate-900/80">
-              <div className="absolute inset-x-0 bottom-0 h-[42%] bg-slate-800/80" />
-              <div className="absolute left-1/2 top-[18%] -translate-x-1/2 text-[clamp(60px,18vw,90px)] opacity-70">
-                {accidentCase.sceneEmoji}
+              <div className="mt-2 rounded-2xl bg-black/55 px-3 py-3 text-center font-black leading-snug text-[clamp(18px,4.5vw,24px)]">
+                {puzzle.question}
               </div>
 
-              {accidentCase.hotspots.map((hotspot) => (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                {puzzle.choices.map((choice) => {
+                  const isSelected = selected === choice;
+                  const isCorrect = choice === puzzle.answer;
+
+                  return (
+                    <button
+                      key={choice}
+                      onClick={() => handleChoice(choice)}
+                      className={[
+                        "min-h-[48px] rounded-xl px-2 py-2 font-black shadow-lg active:scale-95 text-[clamp(15px,3.8vw,20px)]",
+                        !selected
+                          ? "bg-white text-slate-950"
+                          : isSelected && isCorrect
+                          ? "bg-green-500 text-white"
+                          : isSelected && !isCorrect
+                          ? "bg-red-500 text-white"
+                          : "bg-white/15 text-white/45",
+                      ].join(" ")}
+                    >
+                      {choice}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selected && !unlocked ? (
                 <button
-                  key={hotspot.id}
-                  onClick={() => handleTapHotspot(hotspot)}
-                  className={[
-                    "absolute -translate-x-1/2 -translate-y-1/2 active:scale-90",
-                    "grid place-items-center rounded-full border-4 shadow-2xl",
-                    "h-[clamp(62px,17vw,86px)] w-[clamp(62px,17vw,86px)]",
-                    result && hotspot.correct
-                      ? "border-green-400 bg-green-500/90"
-                      : "border-yellow-300 bg-black/70",
-                  ].join(" ")}
-                  style={{
-                    left: `${hotspot.x}%`,
-                    top: `${hotspot.y}%`,
-                  }}
+                  onClick={handleContinue}
+                  className="mt-4 w-full rounded-2xl bg-red-600 py-3 font-black shadow-lg active:scale-95 text-[clamp(18px,5vw,25px)]"
                 >
-                  <span className="text-[clamp(30px,9vw,46px)]">
-                    {hotspot.emoji}
-                  </span>
+                  ลองใหม่ -20
                 </button>
-              ))}
-
-              {!result && (
-                <div className="absolute inset-x-3 bottom-3 rounded-2xl bg-yellow-400 px-3 py-2 text-center font-black text-black text-[clamp(15px,4vw,20px)]">
-                  {accidentCase.prompt}
-                </div>
-              )}
+              ) : null}
             </div>
+          ) : (
+            <div className="mt-4 rounded-[24px] border border-green-400/30 bg-green-500/10 p-4 text-center">
+              <div className="font-black leading-none text-green-300 text-[clamp(18px,4.5vw,26px)]">
+  {puzzle.unlockTitle}
+</div>
+              <button
+  onClick={handleContinue}
+  className="mt-3 mb-3 w-full rounded-2xl bg-green-600 py-3 font-black text-white shadow-lg active:scale-95 text-[clamp(18px,5vw,24px)]"
+>
+  {caseClosed ? "เคสต่อไป ▶" : "ปลดล็อกต่อ ▶"}
+</button>
+              <div className="mt-3 space-y-2">
+                {puzzle.unlockedLines.map((line) => (
+                  <div
+                    key={line}
+                    className="rounded-2xl bg-black/55 px-3 py-3 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]"
+                  >
+                    ✓ {line}
+                  </div>
+                ))}
+              </div>
 
-            {/* Result / Lesson */}
-            {result ? (
-              <div className="mt-3 rounded-[22px] border border-white/10 bg-black/70 p-3 text-center">
-                <div
-                  className={[
-                    "font-black leading-none text-[clamp(28px,8vw,42px)]",
-                    result.correct ? "text-green-400" : "text-red-400",
-                  ].join(" ")}
-                >
-                  {result.correct ? "CORRECT! +30" : "WRONG! -30"}
-                </div>
-
-                <div className="mt-2 font-black text-yellow-300 text-[clamp(16px,4.5vw,22px)]">
-                  LESSON LEARNED
-                </div>
-
-                <p className="mt-1 font-bold leading-snug text-white text-[clamp(14px,3.8vw,18px)]">
-                  {accidentCase.lesson}
-                </p>
-
-                {!result.correct && (
-                  <p className="mt-1 font-bold text-red-200 text-[clamp(13px,3.5vw,16px)]">
-                    จุดที่ควรแตะคือ:{" "}
-                    {accidentCase.hotspots.find((h) => h.correct)?.label}
+              {caseClosed ? (
+                <div className="mt-4 rounded-2xl border border-yellow-300/30 bg-yellow-300/10 p-3">
+                  <div className="font-black text-yellow-300 text-[clamp(18px,5vw,25px)]">
+                    🏆 LESSON LEARNED
+                  </div>
+                  <p className="mt-2 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]">
+                    {accidentCase.lesson}
                   </p>
-                )}
-
-                <button
-                  onClick={handleNext}
-                  className="mt-3 w-full rounded-2xl bg-green-600 py-3 font-black shadow-lg active:scale-95 text-[clamp(20px,5.5vw,28px)]"
-                >
-                  เคสต่อไป ▶
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+                </div>
+              ) : null}
+            </div>
+          )}
+                </div>
+</div>
+</div>
+);
 }
