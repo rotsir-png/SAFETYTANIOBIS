@@ -50,10 +50,14 @@ export function saveProgress(progress: GameProgress): void {
 
 export function unlockNextStage(passedStage: number): void {
   const progress = getProgress();
+
   if (!progress.passedStages.includes(passedStage)) {
     progress.passedStages.push(passedStage);
   }
-  progress.highestUnlockedStage = Math.max(progress.highestUnlockedStage, passedStage + 1);
+
+  const nextStage = Math.min(passedStage + 1, 3);
+  progress.highestUnlockedStage = Math.max(progress.highestUnlockedStage, nextStage);
+
   saveProgress(progress);
 }
 

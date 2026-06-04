@@ -6,7 +6,18 @@ interface Props {
   onStage: (stage: number) => void;
   onBack: () => void;
 }
+const STAGE_UNLOCK_DATES: Record<number, string> = {
+  2: '2026-06-08T08:00:00+07:00',
+  3: '2026-06-11T08:00:00+07:00',
+};
 
+const isDateUnlocked = (stageId: number) => {
+  const unlockDate = STAGE_UNLOCK_DATES[stageId];
+
+  if (!unlockDate) return true;
+
+  return new Date() >= new Date(unlockDate);
+};
 const stages = [
   {
     id: 1,
@@ -48,8 +59,21 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
   const isUnlocked = (id: number) => {
     if (id === 1) return true;
-    if (id === 2) return progress.passedStages.includes(1);
-    if (id === 3) return false; // Coming Soon
+  
+    if (id === 2) {
+      return (
+        progress.passedStages.includes(1) &&
+        isDateUnlocked(2)
+      );
+    }
+  
+    if (id === 3) {
+      return (
+        progress.passedStages.includes(2) &&
+        isDateUnlocked(3)
+      );
+    }
+  
     return false;
   };
   const isPassed = (id: number) => progress.passedStages.includes(id);

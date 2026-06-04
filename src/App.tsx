@@ -12,11 +12,6 @@ import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
 import Stage2PPERush from './stages/Stage2PPERush';
 import Stage3TapHazard from './stages/Stage3TapHazard';
-import Stage4ClawMachine from './stages/Stage4ClawMachine';
-import Stage5HazardDefense from './stages/Stage5HazardDefense';
-import Stage6MachineSync from './stages/Stage6MachineSync';
-import Stage7ForklifPanic from './stages/Stage7ForklifPanic';
-import Stage8FinalChaos from './stages/Stage8FinalChaos';
 import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
@@ -134,9 +129,8 @@ useEffect(() => {
     const passScore =
   stage === 1 ? 300 :
   stage === 2 ? 400 :
-  stage === 7 ? 0 :
-  stage === 8 ? 1000 :
-  500;
+  stage === 3 ? 500 :
+  0;
   
     const passed =
       stage === 7
@@ -191,7 +185,7 @@ if (p) {
   const handleNext = useCallback(() => {
     if (typeof result?.stage === 'number') {
       const next = result.stage + 1;
-      if (next <= 8) {
+      if (next <= 3) {
         setCurrentStage(next);
         setScreen(`stage${next}` as Screen);
       } else {
