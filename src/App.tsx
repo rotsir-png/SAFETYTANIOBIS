@@ -16,6 +16,17 @@ import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
 type AppScreen = Screen | 'edit_profile';
+const STAGE_UNLOCK_DATES: Record<number, string> = {
+  2: '2026-06-08T08:00:00+07:00',
+  3: '2026-06-11T08:00:00+07:00',
+};
+
+const isStageOpenByDate = (stage: number) => {
+  const unlockDate = STAGE_UNLOCK_DATES[stage];
+  if (!unlockDate) return true;
+
+  return new Date() >= new Date(unlockDate);
+};
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [lineIdentity, setLineIdentity] = useState<LineIdentity | null>(null);
@@ -132,13 +143,22 @@ useEffect(() => {
   stage === 3 ? 500 :
   0;
   
-    const passed =
-      stage === 7
-        ? score >= 0
-        : score >= passScore;
-  
-    if (passed) {
-      unlockNextStage(stage);
+  const passed =
+  stage === 7
+    ? score >= 0
+    : score >= passScore;
+
+if (!isStageOpenByDate(stage)) {
+  console.warn('[StageComplete blocked: stage not open yet]', { stage, score });
+
+  setResult({ score, stage, passed: false, passScore });
+  setCurrentStage(stage);
+  setScreen('result');
+  return;
+}
+
+if (passed) {
+  unlockNextStage(stage);
       refreshProgress();
       const p = getProfile();
 
