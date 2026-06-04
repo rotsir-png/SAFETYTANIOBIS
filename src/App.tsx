@@ -202,13 +202,16 @@ if (p) {
   const handleNext = useCallback(() => {
     if (typeof result?.stage === 'number') {
       const next = result.stage + 1;
-      if (next <= 3) {
-        setCurrentStage(next);
-        setScreen(`stage${next}` as Screen);
-      } else {
+  
+      // TEMP LOCK: Stage 2 และ Stage 3 ยังไม่เปิด
+      if (next === 2 || next === 3) {
         refreshProgress();
         setScreen('campaign');
+        return;
       }
+  
+      setCurrentStage(next);
+      setScreen(`stage${next}` as Screen);
     }
   }, [result, refreshProgress]);
 
