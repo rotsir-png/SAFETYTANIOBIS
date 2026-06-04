@@ -185,10 +185,20 @@ if (p) {
   const handleRetry = useCallback(() => {
     if (result?.stage === 'endless') {
       setScreen('endless');
-    } else if (typeof result?.stage === 'number') {
+      return;
+    }
+  
+    if (typeof result?.stage === 'number') {
+      // TEMP LOCK: กันกดเอาใหม่แล้วกลับเข้า Stage 2/3
+      if (result.stage === 2 || result.stage === 3) {
+        refreshProgress();
+        setScreen('campaign');
+        return;
+      }
+  
       setScreen(`stage${result.stage}` as Screen);
     }
-  }, [result]);
+  }, [result, refreshProgress]);
 
   const handleNext = useCallback(() => {
     if (typeof result?.stage === 'number') {
