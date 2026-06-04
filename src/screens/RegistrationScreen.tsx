@@ -47,7 +47,13 @@ export default function RegistrationScreen({ lineIdentity, initialProfile, onDon
 
   const handleSubmit = async () => {
     const newErrors: typeof errors = {};
-    if (!employeeId.trim()) newErrors.employeeId = 'กรุณากรอกรหัสพนักงาน';
+    const empId = employeeId.trim();
+
+if (!empId) {
+  newErrors.employeeId = 'กรุณากรอกรหัสพนักงาน';
+} else if (!/^\d{4}$/.test(empId)) {
+  newErrors.employeeId = 'รหัสพนักงานต้องเป็นตัวเลข 4 หลักเท่านั้น';
+}
     if (!department) newErrors.department = 'กรุณาเลือกแผนก';
     else if (!DEPARTMENTS.includes(department)) newErrors.department = 'กรุณาเลือกแผนกจากรายการ';
 
@@ -181,12 +187,16 @@ export default function RegistrationScreen({ lineIdentity, initialProfile, onDon
               รหัสพนักงาน
             </label>
             <input
-              type="text"
-              value={employeeId}
-              onChange={e => {
-                setEmployeeId(e.target.value);
-                setErrors(er => ({ ...er, employeeId: undefined }));
-              }}
+  type="text"
+  inputMode="numeric"
+  maxLength={4}
+  value={employeeId}
+  onChange={e => {
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+
+    setEmployeeId(value);
+    setErrors(er => ({ ...er, employeeId: undefined }));
+  }}
               placeholder="เช่น 1998"
               className="w-full rounded-2xl px-4 py-4 font-game text-slate-800 outline-none transition-all"
               style={{
