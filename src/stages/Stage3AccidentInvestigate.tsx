@@ -68,10 +68,10 @@ export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
               ด่าน 3
             </div>
             <h1 className="font-black leading-none text-[clamp(22px,6vw,30px)]">
-              Case
+              Accident Investigate
             </h1>
             <div className="mt-1 font-black leading-none text-yellow-300 text-[clamp(22px,6vw,30px)]">
-              Locked
+              
             </div>
           </div>
 
