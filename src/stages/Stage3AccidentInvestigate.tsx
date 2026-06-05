@@ -29,6 +29,7 @@ const pageOrder: CasePage[] = [
 const CARD_WIDTH = 170;
 const CARD_HEIGHT = 92;
 const MIN_SWIPE_DISTANCE = 95;
+
 function randomSwipeZone() {
   return 0.45 + Math.random() * 0.32;
 }
@@ -39,6 +40,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
       onExit?.();
     },
   });
+
   const [caseIndex, setCaseIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(0);
@@ -52,11 +54,14 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [swipeZone, setSwipeZone] = useState(() => randomSwipeZone());
   const [scanMessage, setScanMessage] = useState("ลากบัตรขึ้นไปเสียบ Reader");
   const [inserted, setInserted] = useState(false);
+
   const dragStartRef = useRef({
     pointerY: 0,
     startCardY: 0,
   });
+
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+
   const currentCase = stage3Cases[caseIndex % stage3Cases.length];
   const page = pageOrder[pageIndex];
 
@@ -90,7 +95,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
     window.setTimeout(() => {
       resetAccessCard();
-    }, 800);
+    }, 850);
   };
 
   const grantAccess = () => {
@@ -107,22 +112,22 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
   const handleInsertMove = (clientY: number) => {
     if (paused || accessPhase !== "insert" || !isDraggingCard) return;
-  
+
     const deltaY = clientY - dragStartRef.current.pointerY;
     const nextY = Math.max(
       -105,
       Math.min(24, dragStartRef.current.startCardY + deltaY)
     );
-  
+
     setCardY(nextY);
     setScanMessage("⬆️ ลากบัตรขึ้นไปให้ถึงช่อง Reader");
-  
+
     if (nextY <= -86) {
       setIsDraggingCard(false);
       setInserted(true);
       setCardY(-112);
       setScanMessage("✅ INSERTED! กำลังอ่านบัตร...");
-    
+
       window.setTimeout(() => {
         setAccessPhase("swipe");
         setInserted(false);
@@ -139,44 +144,44 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
     trackWidth: number
   ) => {
     if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
-  
+
     const maxX = Math.max(1, trackWidth - CARD_WIDTH - 48);
     const nextX = Math.max(
       0,
       Math.min(maxX, clientX - trackLeft - dragOffsetRef.current.x - 24)
     );
-  
+
     setMaxCardX(maxX);
-setCardX(nextX);
+    setCardX(nextX);
 
-const scanLineRatio = (nextX + CARD_WIDTH * 0.5) / (maxX + CARD_WIDTH);
-const distance = Math.abs(scanLineRatio - swipeZone);
+    const scanLineRatio = (nextX + CARD_WIDTH * 0.5) / (maxX + CARD_WIDTH);
+    const distance = Math.abs(scanLineRatio - swipeZone);
 
-if (nextX < MIN_SWIPE_DISTANCE) {
-  setScanMessage("➡️ รูดต่ออีกนิด ให้ผ่าน Reader ก่อน");
-} else if (distance <= 0.04) {
-  setScanMessage("🎯 ตรงแล้ว! ปล่อยนิ้วได้เลย");
-} else if (distance <= 0.1) {
-  setScanMessage("🟢 ใกล้แล้ว รูดช้า ๆ");
-} else {
-  setScanMessage("➡️ รูดให้เส้นแดงเข้า ACCESS ZONE");
-}
+    if (nextX < MIN_SWIPE_DISTANCE) {
+      setScanMessage("➡️ รูดต่ออีกนิด ให้ผ่าน Reader ก่อน");
+    } else if (distance <= 0.04) {
+      setScanMessage("🎯 ตรงแล้ว! ปล่อยนิ้วได้เลย");
+    } else if (distance <= 0.1) {
+      setScanMessage("🟢 ใกล้แล้ว รูดช้า ๆ");
+    } else {
+      setScanMessage("➡️ รูดให้เส้นแดงเข้า ACCESS ZONE");
+    }
   };
 
   const handleSwipeEnd = () => {
     if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
-  
+
     setIsDraggingCard(false);
-  
+
     if (cardX < MIN_SWIPE_DISTANCE) {
       missAccess("❌ รูดสั้นไป! ต้องรูดผ่าน Reader ให้สุดกว่านี้");
       return;
     }
-  
+
     const scanLineRatio = (cardX + CARD_WIDTH * 0.5) / (maxCardX + CARD_WIDTH);
     const min = swipeZone - 0.1;
     const max = swipeZone + 0.1;
-  
+
     if (scanLineRatio >= min && scanLineRatio <= max) {
       grantAccess();
     } else {
@@ -208,7 +213,6 @@ if (nextX < MIN_SWIPE_DISTANCE) {
   };
 
   const pageProgress = Math.round((pageIndex / (pageOrder.length - 1)) * 100);
-
   const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
 
   return (
@@ -228,7 +232,7 @@ if (nextX < MIN_SWIPE_DISTANCE) {
           </div>
 
           <div className="flex shrink-0 items-start gap-3">
-          <PauseButton paused={paused} onToggle={togglePause} />
+            <PauseButton paused={paused} onToggle={togglePause} />
 
             <div className="text-right">
               <div className="font-black text-yellow-300 text-[clamp(27px,7vw,36px)]">
@@ -292,6 +296,8 @@ if (nextX < MIN_SWIPE_DISTANCE) {
                   }
                 }}
                 onPointerUp={() => {
+                  if (paused) return;
+
                   if (accessPhase === "insert" && isDraggingCard) {
                     setIsDraggingCard(false);
                     missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
@@ -301,6 +307,8 @@ if (nextX < MIN_SWIPE_DISTANCE) {
                   handleSwipeEnd();
                 }}
                 onPointerCancel={() => {
+                  if (paused) return;
+
                   if (accessPhase === "insert" && isDraggingCard) {
                     setIsDraggingCard(false);
                     missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
@@ -316,7 +324,7 @@ if (nextX < MIN_SWIPE_DISTANCE) {
                   </div>
                   <div className="mx-auto mt-2 h-5 w-44 rounded-full bg-green-300 shadow-[0_0_20px_rgba(134,239,172,0.75)]" />
                   <div className="mt-1 font-black text-white/55 text-[clamp(11px,3vw,13px)]">
-                    INSERT CARD FIRST
+                    {accessPhase === "insert" ? "INSERT CARD FIRST" : "SWIPE TO UNLOCK"}
                   </div>
                 </div>
 
@@ -331,67 +339,60 @@ if (nextX < MIN_SWIPE_DISTANCE) {
                       }}
                     >
                       <div className="grid h-full place-items-center text-center">
-  <div>
-    <div className="font-black text-[12px]">
-      ACCESS
-    </div>
-    <div className="font-black text-[12px]">
-      ZONE
-    </div>
-  </div>
-</div>
+                        <div>
+                          <div className="font-black text-[12px]">ACCESS</div>
+                          <div className="font-black text-[12px]">ZONE</div>
+                        </div>
+                      </div>
                     </div>
 
                     <div className="absolute left-3 top-1 font-black text-green-300 text-[12px]">
-  ⬅️ รูดบัตร ➡️
-</div>
+                      ⬅️ รูดบัตร ➡️
+                    </div>
                   </div>
                 )}
 
                 <div
                   onPointerDown={(e) => {
+                    if (paused) return;
                     if (accessPhase !== "insert" && accessPhase !== "swipe") return;
-                  
+
                     e.currentTarget.setPointerCapture(e.pointerId);
                     setIsDraggingCard(true);
-                  
+
                     if (accessPhase === "insert") {
                       dragStartRef.current = {
                         pointerY: e.clientY,
                         startCardY: cardY,
                       };
-                  
+
                       setScanMessage("⬆️ ลากบัตรขึ้นไปเสียบ Reader");
                       return;
                     }
-                  
+
                     if (accessPhase === "swipe") {
                       const cardRect = e.currentTarget.getBoundingClientRect();
-                  
+
                       dragOffsetRef.current = {
                         x: e.clientX - cardRect.left,
                         y: 0,
                       };
-                  
+
                       setScanMessage("➡️ รูดบัตรไปทางขวา");
                     }
                   }}
                   style={{
                     width: isSwipeMode ? CARD_WIDTH : undefined,
-height: CARD_HEIGHT,
-left: isSwipeMode ? 24 : 32,
-right: isSwipeMode ? "auto" : 32,
-
-// STEP 2: ให้อยู่ในรางรูด ไม่เด้งไปกลางจอ
-top: isSwipeMode ? 146 : 210,
-
-transform: isSwipeMode
-  ? `translateX(${cardX}px)`
-  : inserted
-  ? `translateY(-112px) scale(0.92)`
-  : `translateY(${cardY}px)`,
-
-transition: inserted ? "transform 180ms ease-out" : undefined,
+                    height: CARD_HEIGHT,
+                    left: isSwipeMode ? 24 : 32,
+                    right: isSwipeMode ? "auto" : 32,
+                    top: isSwipeMode ? 146 : 210,
+                    transform: isSwipeMode
+                      ? `translateX(${cardX}px)`
+                      : inserted
+                      ? `translateY(-112px) scale(0.92)`
+                      : `translateY(${cardY}px)`,
+                    transition: inserted ? "transform 180ms ease-out" : undefined,
                   }}
                   className={[
                     "absolute cursor-grab rounded-[20px] border-2 p-2 text-left shadow-2xl active:cursor-grabbing",
@@ -403,11 +404,11 @@ transition: inserted ? "transform 180ms ease-out" : undefined,
                   ].join(" ")}
                 >
                   <div className="relative h-full w-full overflow-hidden rounded-[14px]">
-                  <div className="absolute left-1/2 top-[-12px] z-20 h-[120px] w-2 -translate-x-1/2 rounded-full bg-red-600 shadow-[0_0_16px_rgba(239,68,68,1)]" />
+                    <div className="absolute left-1/2 top-[-12px] z-20 h-[120px] w-2 -translate-x-1/2 rounded-full bg-red-600 shadow-[0_0_16px_rgba(239,68,68,1)]" />
 
-<div className="absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full bg-red-700 px-2 py-[2px] text-[10px] font-black text-white">
-  SCAN
-</div>
+                    <div className="absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full bg-red-700 px-2 py-[2px] text-[10px] font-black text-white">
+                      SCAN
+                    </div>
 
                     <div className="text-center">
                       <div className="font-black leading-none text-[clamp(18px,5vw,24px)]">
@@ -481,6 +482,7 @@ transition: inserted ? "transform 180ms ease-out" : undefined,
           )}
         </div>
       </div>
+
       <div className="relative z-[99999]">{PauseOverlay}</div>
     </div>
   );
