@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import PauseButton, { usePause } from "../components/PauseButton";
 import { stage3Cases } from "../data/stage3Cases";
 
@@ -16,6 +16,106 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
+type UnlockMode = "wordOrder";
+
+type RecoverToken = {
+  id: string;
+  text: string;
+};
+
+type RecoverPuzzle = {
+  answer: string;
+  maskedAnswer: string;
+  beforeText: string;
+  afterText: string;
+  choices: RecoverToken[];
+};
+
+function smartTokenizeLine(line: string) {
+  const dictionary = [
+    "พบ", "คว้าน", "ออก", "จาก", "ตู้ควบคุมระบบ", "Pump",
+    "ระหว่าง", "เดินเครื่อง", "อุบัติเหตุ", "พนักงาน",
+    "ไม่ได้", "สวม", "Harness", "Face", "Shield",
+    "วาง", "อยู่", "บน", "พื้น", "ไม่ปฏิบัติตาม",
+    "ขั้นตอน", "วิธี", "ทำงาน", "ปลอดภัย",
+  ];
+
+  let text = line.trim();
+  const tokens: string[] = [];
+
+  while (text.length > 0) {
+    if (text.startsWith(" ")) {
+      text = text.slice(1);
+      continue;
+    }
+
+    const matched = dictionary
+      .sort((a, b) => b.length - a.length)
+      .find((word) => text.startsWith(word));
+
+    if (matched) {
+      tokens.push(matched);
+      text = text.slice(matched.length);
+      continue;
+    }
+
+    const spaceIndex = text.indexOf(" ");
+    if (spaceIndex > 0) {
+      tokens.push(text.slice(0, spaceIndex));
+      text = text.slice(spaceIndex + 1);
+    } else {
+      tokens.push(text);
+      break;
+    }
+  }
+
+  return tokens.filter(Boolean);
+}
+
+function makeRecoverPuzzle(line: string): RecoverPuzzle {
+  const keywords = [
+    "ตรวจสอบ",
+    "ความปลอดภัย",
+    "ตู้ควบคุมระบบ",
+    "เดินเครื่อง",
+    "คว้านออกจากตู้",
+    "หยุดใช้งาน",
+    "อันตราย",
+    "ป้องกัน",
+    "อุบัติเหตุ",
+    "PPE",
+    "Harness",
+    "Face Shield",
+  ];
+
+  const matchedKeyword =
+    keywords
+      .sort((a, b) => b.length - a.length)
+      .find((word) => line.includes(word)) || "";
+
+  const answer = matchedKeyword || line.trim().split(/\s+/)[0] || line[0];
+
+  const [beforeText, afterText] = line.split(answer);
+
+  const distractors = keywords
+    .filter((word) => word !== answer)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3);
+
+  const choices = [answer, ...distractors]
+    .sort(() => Math.random() - 0.5)
+    .map((text, index) => ({
+      id: `${text}-${index}-${Math.random()}`,
+      text,
+    }));
+
+  return {
+    answer,
+    beforeText,
+    afterText,
+    choices,
+  };
+}
 
 const pageOrder: CasePage[] = [
   "locked",
@@ -26,12 +126,19 @@ const pageOrder: CasePage[] = [
   "lesson",
 ];
 
-const CARD_WIDTH = 170;
+const CARD_WIDTH = 150;
 const CARD_HEIGHT = 92;
-const MIN_SWIPE_DISTANCE = 95;
+const MIN_SWIPE_DISTANCE = 80;
+
+const PERFECT_DISTANCE_PX = 18;
+const GOOD_DISTANCE_PX = 42;
+
+const ACCESS_ZONE_WIDTH = 76;
+const CARD_START_X = 24;
+const TRACK_INSET_X = 16;
 
 function randomSwipeZone() {
-  return 0.45 + Math.random() * 0.32;
+  return 0.18 + Math.random() * 0.64;
 }
 
 export default function Stage3AccidentInvestigate({ onExit }: Props) {
@@ -52,8 +159,26 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [maxCardX, setMaxCardX] = useState(1);
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const [swipeZone, setSwipeZone] = useState(() => randomSwipeZone());
+  const [zoneLeftPx, setZoneLeftPx] = useState(0);
+  const [accessResult, setAccessResult] = useState<"perfect" | "good" | null>(
+    null
+  );
   const [scanMessage, setScanMessage] = useState("ลากบัตรขึ้นไปเสียบ Reader");
   const [inserted, setInserted] = useState(false);
+  const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
+  const [recoverAnswer, setRecoverAnswer] = useState("");
+  const [recoverBeforeText, setRecoverBeforeText] = useState("");
+  const [recoverAfterText, setRecoverAfterText] = useState("");
+  const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
+  const [recoverSelected, setRecoverSelected] = useState<RecoverToken | null>(null);
+  const [recoverError, setRecoverError] = useState("");
+
+  const zoneOffsetRef = useRef(0);
+  const zoneCenterPxRef = useRef(0);
+  const cardXRef = useRef(0);
+
+  const touchAreaRef = useRef<HTMLDivElement | null>(null);
+  const swipeTrackRef = useRef<HTMLDivElement | null>(null);
 
   const dragStartRef = useRef({
     pointerY: 0,
@@ -61,6 +186,64 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   });
 
   const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  const updateZonePosition = (activeZone: number) => {
+    const touchEl = touchAreaRef.current;
+    const trackEl = swipeTrackRef.current;
+    if (!touchEl || !trackEl) return;
+
+    const touchWidth = touchEl.getBoundingClientRect().width;
+    const trackWidth = trackEl.getBoundingClientRect().width;
+
+    const maxX = Math.max(1, touchWidth - CARD_WIDTH - 48);
+    const scanMinX = CARD_START_X + CARD_WIDTH * 0.5;
+    const scanMaxX = CARD_START_X + maxX + CARD_WIDTH * 0.5;
+
+    const clampedZone = Math.max(0, Math.min(1, activeZone));
+    const zoneCenterX = scanMinX + (scanMaxX - scanMinX) * clampedZone;
+
+    const nextLeft = Math.max(
+      4,
+      Math.min(
+        trackWidth - ACCESS_ZONE_WIDTH - 4,
+        zoneCenterX - TRACK_INSET_X - ACCESS_ZONE_WIDTH * 0.5
+      )
+    );
+
+    zoneCenterPxRef.current = nextLeft + TRACK_INSET_X + ACCESS_ZONE_WIDTH * 0.5;
+    setZoneLeftPx(nextLeft);
+  };
+
+  const getSwipeDistanceFromCardX = (nextCardX: number) => {
+    const scanCenterX = CARD_START_X + nextCardX + CARD_WIDTH * 0.5;
+    return Math.abs(scanCenterX - zoneCenterPxRef.current);
+  };
+
+  useEffect(() => {
+    if (accessPhase !== "swipe") {
+      zoneOffsetRef.current = 0;
+      zoneCenterPxRef.current = 0;
+      setZoneLeftPx(0);
+      return;
+    }
+
+    let frame = 0;
+
+    window.requestAnimationFrame(() => {
+      zoneOffsetRef.current = 0;
+      updateZonePosition(swipeZone);
+    });
+
+    const id = window.setInterval(() => {
+      frame += 1;
+
+      const nextOffset = Math.sin(frame * 0.08) * 0.03;
+      zoneOffsetRef.current = nextOffset;
+      updateZonePosition(swipeZone + nextOffset);
+    }, 30);
+
+    return () => window.clearInterval(id);
+  }, [accessPhase, swipeZone]);
 
   const currentCase = stage3Cases[caseIndex % stage3Cases.length];
   const page = pageOrder[pageIndex];
@@ -78,6 +261,10 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const allRevealed = page === "locked" || revealedCount >= lines.length;
 
   const resetAccessCard = () => {
+    zoneOffsetRef.current = 0;
+    zoneCenterPxRef.current = 0;
+    cardXRef.current = 0;
+
     setAccessPhase("insert");
     setCardY(0);
     setCardX(0);
@@ -85,6 +272,8 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
     setIsDraggingCard(false);
     setInserted(false);
     setSwipeZone(randomSwipeZone());
+    setZoneLeftPx(0);
+    setAccessResult(null);
     setScanMessage("ลากบัตรขึ้นไปเสียบ Reader");
   };
 
@@ -98,16 +287,18 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
     }, 850);
   };
 
-  const grantAccess = () => {
+  const grantAccess = (perfect: boolean) => {
+    setAccessResult(perfect ? "perfect" : "good");
     setAccessPhase("granted");
-    setScanMessage("✅ ACCESS GRANTED");
-    setScore((s) => s + 75);
+    setScanMessage(perfect ? "🎯 PERFECT ACCESS" : "✅ ACCESS GRANTED");
+    setScore((s) => s + (perfect ? 100 : 75));
 
     window.setTimeout(() => {
       setPageIndex(1);
       setRevealedCount(0);
+      setAccessResult(null);
       resetAccessCard();
-    }, 850);
+    }, 900);
   };
 
   const handleInsertMove = (clientY: number) => {
@@ -133,6 +324,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
         setInserted(false);
         setCardY(0);
         setCardX(0);
+        cardXRef.current = 0;
         setScanMessage("STEP 2: แตะบัตร แล้วรูดให้เส้นแดงตรงช่องเขียว");
       }, 350);
     }
@@ -153,16 +345,18 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
     setMaxCardX(maxX);
     setCardX(nextX);
+    cardXRef.current = nextX;
 
-    const scanLineRatio = (nextX + CARD_WIDTH * 0.5) / (maxX + CARD_WIDTH);
-    const distance = Math.abs(scanLineRatio - swipeZone);
+    updateZonePosition(swipeZone + zoneOffsetRef.current);
+
+    const distance = getSwipeDistanceFromCardX(nextX);
 
     if (nextX < MIN_SWIPE_DISTANCE) {
       setScanMessage("➡️ รูดต่ออีกนิด ให้ผ่าน Reader ก่อน");
-    } else if (distance <= 0.04) {
-      setScanMessage("🎯 ตรงแล้ว! ปล่อยนิ้วได้เลย");
-    } else if (distance <= 0.1) {
-      setScanMessage("🟢 ใกล้แล้ว รูดช้า ๆ");
+    } else if (distance <= PERFECT_DISTANCE_PX) {
+      setScanMessage("🎯 PERFECT! ปล่อยนิ้วเลย!");
+    } else if (distance <= GOOD_DISTANCE_PX) {
+      setScanMessage("✅ ACCESS ได้แล้ว ปล่อยนิ้วได้");
     } else {
       setScanMessage("➡️ รูดให้เส้นแดงเข้า ACCESS ZONE");
     }
@@ -173,29 +367,81 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
     setIsDraggingCard(false);
 
-    if (cardX < MIN_SWIPE_DISTANCE) {
+    const finalCardX = cardXRef.current;
+
+    if (finalCardX < MIN_SWIPE_DISTANCE) {
       missAccess("❌ รูดสั้นไป! ต้องรูดผ่าน Reader ให้สุดกว่านี้");
       return;
     }
 
-    const scanLineRatio = (cardX + CARD_WIDTH * 0.5) / (maxCardX + CARD_WIDTH);
-    const min = swipeZone - 0.1;
-    const max = swipeZone + 0.1;
+    updateZonePosition(swipeZone + zoneOffsetRef.current);
 
-    if (scanLineRatio >= min && scanLineRatio <= max) {
-      grantAccess();
-    } else {
-      missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
+    const distance = getSwipeDistanceFromCardX(finalCardX);
+
+    if (distance <= PERFECT_DISTANCE_PX) {
+      grantAccess(true);
+      return;
     }
-  };
 
+    if (distance <= GOOD_DISTANCE_PX) {
+      grantAccess(false);
+      return;
+    }
+
+    missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
+  };
+  const startUnlockInfo = () => {
+    if (paused || page === "locked" || allRevealed) return;
+  
+    const targetLine = lines[revealedCount];
+    if (!targetLine) return;
+  
+    const puzzle = makeRecoverPuzzle(targetLine);
+  
+    setUnlockMode("wordOrder");
+    setRecoverAnswer(puzzle.answer);
+    setRecoverBeforeText(puzzle.beforeText);
+    setRecoverAfterText(puzzle.afterText);
+    setRecoverChoices(puzzle.choices);
+    setRecoverSelected(null);
+    setRecoverError("");
+  };
+  
+  const selectRecoverToken = (token: RecoverToken) => {
+    setRecoverSelected(token);
+    setRecoverError("");
+  };
+  
+  const submitRecoverPuzzle = () => {
+    if (paused || !unlockMode) return;
+  
+    if (!recoverSelected) {
+      setRecoverError("❌ เลือกคำที่หายไปก่อน");
+      return;
+    }
+  
+    if (recoverSelected.text !== recoverAnswer) {
+      setRecoverError("❌ ยังไม่ถูก ลองดูบริบทประโยคอีกที");
+      return;
+    }
+  
+    setUnlockMode(null);
+    setRecoverAnswer("");
+    setRecoverBeforeText("");
+    setRecoverAfterText("");
+    setRecoverChoices([]);
+    setRecoverSelected(null);
+    setRecoverError("");
+  
+    setRevealedCount((v) => Math.min(lines.length, v + 1));
+    setScore((s) => s + 25);
+  };
   const nextPage = () => {
     if (paused) return;
     if (page === "locked") return;
 
     if (!allRevealed) {
-      setRevealedCount((v) => Math.min(lines.length, v + 1));
-      setScore((s) => s + 25);
+      startUnlockInfo();
       return;
     }
 
@@ -282,6 +528,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
               </p>
 
               <div
+                ref={touchAreaRef}
                 className="relative mt-3 h-[330px] overflow-hidden rounded-[28px] border border-white/10 bg-black/45 p-3 touch-none select-none"
                 onPointerMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
@@ -324,18 +571,30 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                   </div>
                   <div className="mx-auto mt-2 h-5 w-44 rounded-full bg-green-300 shadow-[0_0_20px_rgba(134,239,172,0.75)]" />
                   <div className="mt-1 font-black text-white/55 text-[clamp(11px,3vw,13px)]">
-                    {accessPhase === "insert" ? "INSERT CARD FIRST" : "SWIPE TO UNLOCK"}
+                    {accessPhase === "insert"
+                      ? "INSERT CARD FIRST"
+                      : "SWIPE TO UNLOCK"}
                   </div>
                 </div>
 
                 {isSwipeMode && (
-                  <div className="absolute left-4 right-4 top-[128px] h-[72px] rounded-[22px] border border-white/15 bg-slate-950/90">
+                  <div
+                    ref={swipeTrackRef}
+                    className="absolute left-4 right-4 top-[128px] h-[72px] rounded-[22px] border border-white/15 bg-slate-950/90"
+                  >
                     <div className="absolute left-4 right-4 top-1/2 h-5 -translate-y-1/2 rounded-full bg-white/15" />
 
                     <div
-                      className="absolute top-1/2 h-16 w-[76px] -translate-y-1/2 rounded-2xl border border-green-300/70 bg-green-500/35 shadow-[0_0_22px_rgba(134,239,172,0.5)]"
+                      className={[
+                        "absolute top-1/2 h-16 w-[76px] -translate-y-1/2 rounded-2xl border shadow-[0_0_22px_rgba(134,239,172,0.5)]",
+                        accessResult === "perfect"
+                          ? "border-yellow-200 bg-yellow-300/45"
+                          : accessResult === "good"
+                          ? "border-green-200 bg-green-400/45"
+                          : "border-green-300/70 bg-green-500/35",
+                      ].join(" ")}
                       style={{
-                        left: `${Math.min(70, Math.max(8, swipeZone * 100 - 10))}%`,
+                        left: `${zoneLeftPx}px`,
                       }}
                     >
                       <div className="grid h-full place-items-center text-center">
@@ -355,7 +614,8 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                 <div
                   onPointerDown={(e) => {
                     if (paused) return;
-                    if (accessPhase !== "insert" && accessPhase !== "swipe") return;
+                    if (accessPhase !== "insert" && accessPhase !== "swipe")
+                      return;
 
                     e.currentTarget.setPointerCapture(e.pointerId);
                     setIsDraggingCard(true);
@@ -384,7 +644,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                   style={{
                     width: isSwipeMode ? CARD_WIDTH : undefined,
                     height: CARD_HEIGHT,
-                    left: isSwipeMode ? 24 : 32,
+                    left: isSwipeMode ? CARD_START_X : 32,
                     right: isSwipeMode ? "auto" : 32,
                     top: isSwipeMode ? 146 : 210,
                     transform: isSwipeMode
@@ -447,7 +707,71 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
               <div className="text-center font-black text-yellow-300 text-[clamp(20px,5vw,28px)]">
                 {getPageTitle(page)}
               </div>
+              {unlockMode && (
+  <div className="mt-4 rounded-[24px] border border-green-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(34,197,94,0.25)]">
+    <div className="font-black text-green-300 text-[clamp(20px,5vw,28px)]">
+      🧩 WORD RECOVERY
+    </div>
 
+    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
+      เติมคำที่หายไป เพื่อกู้ข้อมูลที่ถูกล็อก
+    </p>
+
+    <div className="mt-3 rounded-2xl bg-white/10 px-3 py-3 text-left">
+      <div className="font-black text-yellow-300 text-[clamp(13px,3.5vw,16px)]">
+        💡 HINT
+      </div>
+
+      <div className="mt-1 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]">
+        อ่านบริบทประโยค แล้วเลือกคำที่หายไปให้ถูกต้อง
+      </div>
+    </div>
+
+    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
+      <div className="mb-2 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
+        เติมคำที่หายไป
+      </div>
+
+      <div className="rounded-xl bg-white/10 p-3 font-black leading-snug text-white text-[clamp(16px,4.3vw,21px)]">
+        {recoverBeforeText}
+        <span className="mx-1 rounded-lg bg-yellow-300 px-2 py-1 text-slate-950">
+          {recoverSelected ? recoverSelected.text : "______"}
+        </span>
+        {recoverAfterText}
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        {recoverChoices.map((token) => (
+          <button
+            key={token.id}
+            onClick={() => selectRecoverToken(token)}
+            className={[
+              "rounded-xl px-3 py-2 font-black shadow active:scale-95 text-[clamp(15px,4vw,19px)]",
+              recoverSelected?.id === token.id
+                ? "bg-green-400 text-slate-950"
+                : "bg-yellow-300 text-slate-950",
+            ].join(" ")}
+          >
+            {token.text}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {recoverError && (
+      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
+        {recoverError}
+      </div>
+    )}
+
+    <button
+      onClick={submitRecoverPuzzle}
+      className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+    >
+      ✅ SUBMIT / กู้ข้อมูล
+    </button>
+  </div>
+)}
               <div className="mt-4 space-y-3">
                 {lines.map((line, index) => {
                   const revealed = index < revealedCount;
@@ -469,9 +793,13 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
               </div>
 
               <button
-                onClick={nextPage}
-                className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
-              >
+  onClick={unlockMode ? undefined : nextPage}
+  disabled={!!unlockMode}
+  className={[
+    "mt-5 w-full rounded-2xl py-4 font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
+    unlockMode ? "bg-slate-600 opacity-60" : "bg-green-600",
+  ].join(" ")}
+>
                 {!allRevealed
                   ? "🔦 เปิดข้อมูลถัดไป"
                   : page === "lesson"

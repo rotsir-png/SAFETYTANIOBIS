@@ -20,7 +20,6 @@ const STAGE_UNLOCK_DATES: Record<number, string> = {
   2: '2026-06-08T08:00:00+07:00',
   3: '2026-06-11T08:00:00+07:00',
 };
-const [isPaused, setIsPaused] = useState(false);
 const isStageOpenByDate = (stage: number) => {
   const unlockDate = STAGE_UNLOCK_DATES[stage];
   if (!unlockDate) return true;
