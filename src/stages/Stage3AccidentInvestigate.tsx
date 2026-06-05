@@ -28,7 +28,7 @@ const pageOrder: CasePage[] = [
 
 const CARD_WIDTH = 170;
 const CARD_HEIGHT = 92;
-
+const MIN_SWIPE_DISTANCE = 95;
 function randomSwipeZone() {
   return 0.45 + Math.random() * 0.32;
 }
@@ -106,7 +106,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   };
 
   const handleInsertMove = (clientY: number) => {
-    if (accessPhase !== "insert" || !isDraggingCard) return;
+    if (paused || accessPhase !== "insert" || !isDraggingCard) return;
   
     const deltaY = clientY - dragStartRef.current.pointerY;
     const nextY = Math.max(
@@ -138,7 +138,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
     trackLeft: number,
     trackWidth: number
   ) => {
-    if (accessPhase !== "swipe" || !isDraggingCard) return;
+    if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
   
     const maxX = Math.max(1, trackWidth - CARD_WIDTH - 48);
     const nextX = Math.max(
@@ -152,7 +152,9 @@ setCardX(nextX);
 const scanLineRatio = (nextX + CARD_WIDTH * 0.5) / (maxX + CARD_WIDTH);
 const distance = Math.abs(scanLineRatio - swipeZone);
 
-if (distance <= 0.04) {
+if (nextX < MIN_SWIPE_DISTANCE) {
+  setScanMessage("➡️ รูดต่ออีกนิด ให้ผ่าน Reader ก่อน");
+} else if (distance <= 0.04) {
   setScanMessage("🎯 ตรงแล้ว! ปล่อยนิ้วได้เลย");
 } else if (distance <= 0.1) {
   setScanMessage("🟢 ใกล้แล้ว รูดช้า ๆ");
@@ -162,22 +164,28 @@ if (distance <= 0.04) {
   };
 
   const handleSwipeEnd = () => {
-    if (accessPhase !== "swipe" || !isDraggingCard) return;
-
+    if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
+  
     setIsDraggingCard(false);
-
+  
+    if (cardX < MIN_SWIPE_DISTANCE) {
+      missAccess("❌ รูดสั้นไป! ต้องรูดผ่าน Reader ให้สุดกว่านี้");
+      return;
+    }
+  
     const scanLineRatio = (cardX + CARD_WIDTH * 0.5) / (maxCardX + CARD_WIDTH);
-    const min = swipeZone - 0.12;
-    const max = swipeZone + 0.12;
-
+    const min = swipeZone - 0.1;
+    const max = swipeZone + 0.1;
+  
     if (scanLineRatio >= min && scanLineRatio <= max) {
       grantAccess();
     } else {
-      missAccess("❌ MISS -10 เส้นแดงยังไม่ตรงช่องเขียว");
+      missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
     }
   };
 
   const nextPage = () => {
+    if (paused) return;
     if (page === "locked") return;
 
     if (!allRevealed) {
