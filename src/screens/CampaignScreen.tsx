@@ -48,8 +48,19 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
   const isUnlocked = (id: number) => {
     if (id === 1) return true;
-    if (id === 2) return true;//progress.passedStages.includes(1);
-    if (id === 3) return true;//progress.passedStages.includes(2);
+  
+    // TEMP LOCK: ยังไม่เปิด Stage 2 และ Stage 3
+    // ===== TEMP LOCK =====
+if (id === 2 || id === 3) return false;
+
+// ===== OPEN STAGE 2 =====
+// if (id === 2) return progress.passedStages.includes(1);
+// if (id === 3) return false;
+
+// ===== OPEN ALL =====
+// if (id === 2) return progress.passedStages.includes(1);
+// if (id === 3) return progress.passedStages.includes(2);
+  
     return false;
   };
   const isPassed = (id: number) => progress.passedStages.includes(id);
@@ -130,15 +141,15 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
     >
       {stage.id === 2 ? (
         <>
-          ผ่านด่าน 1 ก่อน
+          ด่าน 2 จะเปิด
           <br />
-          ด่าน 2 ถึงจะปลดล็อค
+          8 มิ.ย. 2569 และผ่านด่าน 1
         </>
       ) : (
         <>
-          รอก่อนนะจ๊ะ
+          ด่าน 3 จะเปิด
           <br />
-          เดี๋ยวเปิดให้เล่นเร็ว ๆ นี้
+          11 มิ.ย. 2569 หลังผ่านด่าน 2
         </>
       )}
     </div>

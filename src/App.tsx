@@ -11,16 +11,22 @@ import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
 import Stage2PPERush from './stages/Stage2PPERush';
-import Stage3AccidentInvestigate from './stages/Stage3AccidentInvestigate';
-import Stage4ClawMachine from './stages/Stage4ClawMachine';
-import Stage5HazardDefense from './stages/Stage5HazardDefense';
-import Stage6MachineSync from './stages/Stage6MachineSync';
-import Stage7ForklifPanic from './stages/Stage7ForklifPanic';
-import Stage8FinalChaos from './stages/Stage8FinalChaos';
+import Stage3TapHazard from './stages/Stage3TapHazard';
 import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
 type AppScreen = Screen | 'edit_profile';
+const STAGE_UNLOCK_DATES: Record<number, string> = {
+  2: '2026-06-08T08:00:00+07:00',
+  3: '2026-06-11T08:00:00+07:00',
+};
+
+const isStageOpenByDate = (stage: number) => {
+  const unlockDate = STAGE_UNLOCK_DATES[stage];
+  if (!unlockDate) return true;
+
+  return new Date() >= new Date(unlockDate);
+};
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [lineIdentity, setLineIdentity] = useState<LineIdentity | null>(null);
@@ -134,18 +140,13 @@ useEffect(() => {
     const passScore =
   stage === 1 ? 300 :
   stage === 2 ? 400 :
-  stage === 3 ? 400 :
-  stage === 7 ? 0 :
-  stage === 8 ? 1000 :
-  500;
+  stage === 3 ? 500 :
+  0;
   
-    const passed =
-      stage === 7
-        ? score >= 0
-        : score >= passScore;
-  
-    if (passed) {
-      unlockNextStage(stage);
+  const passed = score >= passScore;
+
+if (passed) {
+  unlockNextStage(stage);
       refreshProgress();
       const p = getProfile();
 
@@ -184,21 +185,34 @@ if (p) {
   const handleRetry = useCallback(() => {
     if (result?.stage === 'endless') {
       setScreen('endless');
-    } else if (typeof result?.stage === 'number') {
+      return;
+    }
+  
+    if (typeof result?.stage === 'number') {
+      // TEMP LOCK: กันกดเอาใหม่แล้วกลับเข้า Stage 2/3
+      if (result.stage === 2 || result.stage === 3) {
+        refreshProgress();
+        setScreen('campaign');
+        return;
+      }
+  
       setScreen(`stage${result.stage}` as Screen);
     }
-  }, [result]);
+  }, [result, refreshProgress]);
 
   const handleNext = useCallback(() => {
     if (typeof result?.stage === 'number') {
       const next = result.stage + 1;
-      if (next <= 8) {
-        setCurrentStage(next);
-        setScreen(`stage${next}` as Screen);
-      } else {
+  
+      // TEMP LOCK: Stage 2 และ Stage 3 ยังไม่เปิด
+      if (next === 2 || next === 3) {
         refreshProgress();
         setScreen('campaign');
+        return;
       }
+  
+      setCurrentStage(next);
+      setScreen(`stage${next}` as Screen);
     }
   }, [result, refreshProgress]);
 
@@ -370,48 +384,13 @@ if (p) {
         />
       )}
 
-{screen === 'stage3' && (
-  <Stage3AccidentInvestigate
-    key={`s3-${currentStage}`}
-    onExit={() => setScreen('campaign')}
-    onClear={(score) => handleStageComplete(score, 3)}
-  />
-)}
-
-      {screen === 'stage4' && (
-        <Stage4ClawMachine
-          key={`s4-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 4)}
+      {screen === 'stage3' && (
+        <Stage3TapHazard
+          key={`s3-${currentStage}`}
+          onComplete={(score) => handleStageComplete(score, 3)}
         />
       )}
 
-      {screen === 'stage5' && (
-        <Stage5HazardDefense
-          key={`s5-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 5)}
-        />
-      )}
-
-      {screen === 'stage6' && (
-        <Stage6MachineSync
-          key={`s6-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 6)}
-        />
-      )}
-
-      {screen === 'stage7' && (
-        <Stage7ForklifPanic
-          key={`s7-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 7)}
-        />
-      )}
-
-{screen === 'stage8' && (
-  <Stage8FinalChaos
-    key={`s8-${currentStage}`}
-    onComplete={(score) => handleStageComplete(score, 8)}
-  />
-)}
 
 {screen === 'endless' && profile && (
   <TitleScreen
