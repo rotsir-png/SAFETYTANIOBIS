@@ -11,7 +11,7 @@ import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
 import Stage2PPERush from './stages/Stage2PPERush';
-import Stage3TapHazard from './stages/Stage3TapHazard';
+import Stage3AccidentInvestigate from './stages/Stage3AccidentInvestigate';
 import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
@@ -20,7 +20,7 @@ const STAGE_UNLOCK_DATES: Record<number, string> = {
   2: '2026-06-08T08:00:00+07:00',
   3: '2026-06-11T08:00:00+07:00',
 };
-
+const [isPaused, setIsPaused] = useState(false);
 const isStageOpenByDate = (stage: number) => {
   const unlockDate = STAGE_UNLOCK_DATES[stage];
   if (!unlockDate) return true;
@@ -384,12 +384,13 @@ if (p) {
         />
       )}
 
-      {screen === 'stage3' && (
-        <Stage3TapHazard
-          key={`s3-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 3)}
-        />
-      )}
+{screen === 'stage3' && (
+  <Stage3AccidentInvestigate
+    key={`s3-${currentStage}`}
+    onExit={() => setScreen('campaign')}
+    onClear={(score) => handleStageComplete(score, 3)}
+  />
+)}
 
 
 {screen === 'endless' && profile && (

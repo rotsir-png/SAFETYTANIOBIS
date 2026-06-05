@@ -51,15 +51,15 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
   
     // TEMP LOCK: ยังไม่เปิด Stage 2 และ Stage 3
     // ===== TEMP LOCK =====
-if (id === 2 || id === 3) return false;
+//if (id === 2 || id === 3) return false;
 
 // ===== OPEN STAGE 2 =====
 // if (id === 2) return progress.passedStages.includes(1);
 // if (id === 3) return false;
 
 // ===== OPEN ALL =====
-// if (id === 2) return progress.passedStages.includes(1);
-// if (id === 3) return progress.passedStages.includes(2);
+if (id === 2) return progress.passedStages.includes(1);
+if (id === 3) return progress.passedStages.includes(2);
   
     return false;
   };

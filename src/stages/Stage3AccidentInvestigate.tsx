@@ -1,4 +1,5 @@
 import React, { useRef, useState } from "react";
+import PauseButton, { usePause } from "../components/PauseButton";
 import { stage3Cases } from "../data/stage3Cases";
 
 type Props = {
@@ -33,6 +34,11 @@ function randomSwipeZone() {
 }
 
 export default function Stage3AccidentInvestigate({ onExit }: Props) {
+  const { paused, togglePause, PauseOverlay } = usePause({
+    onGiveUp: () => {
+      onExit?.();
+    },
+  });
   const [caseIndex, setCaseIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(0);
@@ -214,12 +220,7 @@ if (distance <= 0.04) {
           </div>
 
           <div className="flex shrink-0 items-start gap-3">
-            <button
-              onClick={onExit}
-              className="grid h-12 w-12 place-items-center rounded-2xl border border-white/20 bg-white/10 text-2xl shadow-lg active:scale-95"
-            >
-              ⏸
-            </button>
+          <PauseButton paused={paused} onToggle={togglePause} />
 
             <div className="text-right">
               <div className="font-black text-yellow-300 text-[clamp(27px,7vw,36px)]">
@@ -472,6 +473,7 @@ transition: inserted ? "transform 180ms ease-out" : undefined,
           )}
         </div>
       </div>
+      <div className="relative z-[99999]">{PauseOverlay}</div>
     </div>
   );
 }
