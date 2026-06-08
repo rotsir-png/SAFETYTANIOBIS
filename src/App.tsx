@@ -189,23 +189,15 @@ if (p) {
     }
   
     if (typeof result?.stage === 'number') {
-      // TEMP LOCK: กันกดเอาใหม่แล้วกลับเข้า Stage 2/3
-      if (result.stage === 2 || result.stage === 3) {
-        refreshProgress();
-        setScreen('campaign');
-        return;
-      }
-  
       setScreen(`stage${result.stage}` as Screen);
     }
-  }, [result, refreshProgress]);
+  }, [result]);
 
   const handleNext = useCallback(() => {
     if (typeof result?.stage === 'number') {
       const next = result.stage + 1;
   
-      // TEMP LOCK: Stage 2 และ Stage 3 ยังไม่เปิด
-      if (next === 2 || next === 3) {
+      if (next > 3) {
         refreshProgress();
         setScreen('campaign');
         return;
