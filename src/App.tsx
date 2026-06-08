@@ -197,7 +197,8 @@ if (p) {
     if (typeof result?.stage === 'number') {
       const next = result.stage + 1;
   
-      if (next > 3) {
+      // ตอนนี้เปิดถึง Stage 2 เท่านั้น
+      if (next >= 3) {
         refreshProgress();
         setScreen('campaign');
         return;
