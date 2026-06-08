@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import PauseButton, { usePause } from "../components/PauseButton";
-import { stage3Cases } from "../data/stage3Cases";
+import { stage3Cases, type Stage3CaseLine } from "../data/stage3Cases";
 
 type Props = {
   onExit?: () => void;
@@ -16,7 +16,7 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
-type UnlockMode = "wordOrder";
+type UnlockMode = "letterFill";
 
 type RecoverToken = {
   id: string;
@@ -28,95 +28,9 @@ type RecoverPuzzle = {
   maskedAnswer: string;
   beforeText: string;
   afterText: string;
+  missingLetters: string[];
   choices: RecoverToken[];
 };
-
-function smartTokenizeLine(line: string) {
-  const dictionary = [
-    "พบ", "คว้าน", "ออก", "จาก", "ตู้ควบคุมระบบ", "Pump",
-    "ระหว่าง", "เดินเครื่อง", "อุบัติเหตุ", "พนักงาน",
-    "ไม่ได้", "สวม", "Harness", "Face", "Shield",
-    "วาง", "อยู่", "บน", "พื้น", "ไม่ปฏิบัติตาม",
-    "ขั้นตอน", "วิธี", "ทำงาน", "ปลอดภัย",
-  ];
-
-  let text = line.trim();
-  const tokens: string[] = [];
-
-  while (text.length > 0) {
-    if (text.startsWith(" ")) {
-      text = text.slice(1);
-      continue;
-    }
-
-    const matched = dictionary
-      .sort((a, b) => b.length - a.length)
-      .find((word) => text.startsWith(word));
-
-    if (matched) {
-      tokens.push(matched);
-      text = text.slice(matched.length);
-      continue;
-    }
-
-    const spaceIndex = text.indexOf(" ");
-    if (spaceIndex > 0) {
-      tokens.push(text.slice(0, spaceIndex));
-      text = text.slice(spaceIndex + 1);
-    } else {
-      tokens.push(text);
-      break;
-    }
-  }
-
-  return tokens.filter(Boolean);
-}
-
-function makeRecoverPuzzle(line: string): RecoverPuzzle {
-  const keywords = [
-    "ตรวจสอบ",
-    "ความปลอดภัย",
-    "ตู้ควบคุมระบบ",
-    "เดินเครื่อง",
-    "คว้านออกจากตู้",
-    "หยุดใช้งาน",
-    "อันตราย",
-    "ป้องกัน",
-    "อุบัติเหตุ",
-    "PPE",
-    "Harness",
-    "Face Shield",
-  ];
-
-  const matchedKeyword =
-    keywords
-      .sort((a, b) => b.length - a.length)
-      .find((word) => line.includes(word)) || "";
-
-  const answer = matchedKeyword || line.trim().split(/\s+/)[0] || line[0];
-
-  const [beforeText, afterText] = line.split(answer);
-
-  const distractors = keywords
-    .filter((word) => word !== answer)
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 3);
-
-  const choices = [answer, ...distractors]
-    .sort(() => Math.random() - 0.5)
-    .map((text, index) => ({
-      id: `${text}-${index}-${Math.random()}`,
-      text,
-    }));
-
-  return {
-    answer,
-    beforeText,
-    afterText,
-    choices,
-  };
-}
-
 const pageOrder: CasePage[] = [
   "locked",
   "report",
@@ -141,6 +55,127 @@ function randomSwipeZone() {
   return 0.18 + Math.random() * 0.64;
 }
 
+function shuffle<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+function pickRandomAnswerFromLine(line: string, keywordPriority: string[]) {
+  const phraseMatches = keywordPriority
+    .filter((word) => line.includes(word))
+    .sort((a, b) => b.length - a.length);
+
+  if (phraseMatches.length > 0) {
+    return phraseMatches[Math.floor(Math.random() * phraseMatches.length)];
+  }
+
+  return line.trim().split(/\s+/)[0] || line[0] || "";
+}
+function splitThaiGraphemes(text: string) {
+  const SegmenterCtor = (globalThis.Intl as any)?.Segmenter;
+
+  if (SegmenterCtor) {
+    const segmenter = new SegmenterCtor("th", { granularity: "grapheme" });
+    return Array.from(segmenter.segment(text), (item: any) => item.segment);
+  }
+
+  // fallback: กันสระ/วรรณยุกต์ไทยหลุดจากพยัญชนะ
+  const marks = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/;
+  const result: string[] = [];
+
+  for (const char of Array.from(text)) {
+    if (marks.test(char) && result.length > 0) {
+      result[result.length - 1] += char;
+    } else {
+      result.push(char);
+    }
+  }
+
+  return result;
+}
+
+function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
+  const answer =
+    line.keywords.length > 0
+      ? line.keywords[Math.floor(Math.random() * line.keywords.length)]
+      : line.text.trim().split(/\s+/)[0] || line.text[0] || "";
+
+  const answerIndex = line.text.indexOf(answer);
+  const beforeText = answerIndex >= 0 ? line.text.slice(0, answerIndex) : "";
+  const afterText =
+    answerIndex >= 0 ? line.text.slice(answerIndex + answer.length) : line.text;
+
+  const tokens = splitThaiGraphemes(answer);
+
+  const candidateIndexes = tokens
+    .map((token, index) => ({ token, index }))
+    .filter((item) => item.token.trim() !== "")
+    .filter((item) => item.token !== " ")
+    .filter((item) => item.token !== "-");
+
+  const minMissing = 3;
+  const maxMissing = 5;
+
+  let missingCount =
+    minMissing + Math.floor(Math.random() * (maxMissing - minMissing + 1));
+
+  missingCount = Math.min(missingCount, candidateIndexes.length);
+
+  let missingIndexes = shuffle(candidateIndexes).slice(0, missingCount);
+
+  missingIndexes = missingIndexes.sort((a, b) => a.index - b.index);
+
+  const missingLetters = missingIndexes.map((item) => item.token);
+
+  const maskedAnswer = tokens
+    .map((token, index) =>
+      missingIndexes.some((item) => item.index === index) ? "_" : token
+    )
+    .join("");
+
+  const fallbackDecoys = [
+    "ก",
+    "ข",
+    "ค",
+    "ง",
+    "จ",
+    "ต",
+    "ถ",
+    "ท",
+    "น",
+    "บ",
+    "ป",
+    "พ",
+    "ม",
+    "ย",
+    "ร",
+    "ล",
+    "ว",
+    "ส",
+    "อ",
+    "ะ",
+    "า",
+  ];
+
+  const decoys = shuffle([...tokens, ...fallbackDecoys])
+    .filter((token) => token.trim() !== "")
+    .filter((token) => !missingLetters.includes(token))
+    .slice(0, Math.max(0, 10 - missingLetters.length));
+
+  const choiceLetters = shuffle([...missingLetters, ...decoys]);
+
+  const choices = choiceLetters.map((text, index) => ({
+    id: `${text}-${index}-${Math.random()}`,
+    text,
+  }));
+
+  return {
+    answer,
+    maskedAnswer,
+    beforeText,
+    afterText,
+    missingLetters,
+    choices,
+  };
+}
 export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const { paused, togglePause, PauseOverlay } = usePause({
     onGiveUp: () => {
@@ -160,18 +195,19 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [isDraggingCard, setIsDraggingCard] = useState(false);
   const [swipeZone, setSwipeZone] = useState(() => randomSwipeZone());
   const [zoneLeftPx, setZoneLeftPx] = useState(0);
-  const [accessResult, setAccessResult] = useState<"perfect" | "good" | null>(
-    null
-  );
+  const [accessResult, setAccessResult] = useState<"perfect" | "good" | null>(null);
   const [scanMessage, setScanMessage] = useState("ลากบัตรขึ้นไปเสียบ Reader");
   const [inserted, setInserted] = useState(false);
+
   const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverAnswer, setRecoverAnswer] = useState("");
+  const [recoverMaskedAnswer, setRecoverMaskedAnswer] = useState("");
   const [recoverBeforeText, setRecoverBeforeText] = useState("");
   const [recoverAfterText, setRecoverAfterText] = useState("");
+  const [recoverMissingLetters, setRecoverMissingLetters] = useState<string[]>([]);
   const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
-  const [recoverSelected, setRecoverSelected] = useState<RecoverToken | null>(null);
-  const [recoverError, setRecoverError] = useState("");
+  const [recoverSelected, setRecoverSelected] = useState<RecoverToken[]>([]);
+const [recoverError, setRecoverError] = useState("");
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -236,7 +272,6 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
     const id = window.setInterval(() => {
       frame += 1;
-
       const nextOffset = Math.sin(frame * 0.08) * 0.03;
       zoneOffsetRef.current = nextOffset;
       updateZonePosition(swipeZone + nextOffset);
@@ -248,7 +283,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const currentCase = stage3Cases[caseIndex % stage3Cases.length];
   const page = pageOrder[pageIndex];
 
-  const getLines = () => {
+  const getLines = (): Stage3CaseLine[] => {
     if (page === "report") return currentCase.incidentReport;
     if (page === "evidence") return currentCase.evidence;
     if (page === "rootCause") return currentCase.rootCause;
@@ -390,52 +425,70 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
     missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
   };
+
   const startUnlockInfo = () => {
     if (paused || page === "locked" || allRevealed) return;
-  
+
     const targetLine = lines[revealedCount];
     if (!targetLine) return;
-  
+
     const puzzle = makeRecoverPuzzle(targetLine);
-  
-    setUnlockMode("wordOrder");
+
+    setUnlockMode("letterFill");
     setRecoverAnswer(puzzle.answer);
+    setRecoverMaskedAnswer(puzzle.maskedAnswer);
     setRecoverBeforeText(puzzle.beforeText);
     setRecoverAfterText(puzzle.afterText);
+    setRecoverMissingLetters(puzzle.missingLetters);
     setRecoverChoices(puzzle.choices);
-    setRecoverSelected(null);
+    setRecoverSelected([]);
     setRecoverError("");
   };
-  
+
   const selectRecoverToken = (token: RecoverToken) => {
-    setRecoverSelected(token);
+    if (recoverSelected.length >= recoverMissingLetters.length) return;
+
+    setRecoverChoices((choices) => choices.filter((item) => item.id !== token.id));
+    setRecoverSelected((selected) => [...selected, token]);
     setRecoverError("");
   };
-  
+
+  const removeRecoverToken = (token: RecoverToken) => {
+    setRecoverSelected((selected) => selected.filter((item) => item.id !== token.id));
+    setRecoverChoices((choices) => [...choices, token]);
+    setRecoverError("");
+  };
+
   const submitRecoverPuzzle = () => {
     if (paused || !unlockMode) return;
-  
-    if (!recoverSelected) {
-      setRecoverError("❌ เลือกคำที่หายไปก่อน");
+
+    if (recoverSelected.length < recoverMissingLetters.length) {
+      setRecoverError("❌ เติมตัวอักษรให้ครบก่อน");
       return;
     }
-  
-    if (recoverSelected.text !== recoverAnswer) {
-      setRecoverError("❌ ยังไม่ถูก ลองดูบริบทประโยคอีกที");
+
+    const playerAnswer = recoverSelected.map((token) => token.text).join("");
+    const correctAnswer = recoverMissingLetters.join("");
+
+    if (playerAnswer !== correctAnswer) {
+      setRecoverError("❌ ตัวอักษรยังไม่ถูก ลองดูรูปคำอีกที");
       return;
     }
-  
+
     setUnlockMode(null);
     setRecoverAnswer("");
+    setRecoverMaskedAnswer("");
     setRecoverBeforeText("");
     setRecoverAfterText("");
+    setRecoverMissingLetters([]);
     setRecoverChoices([]);
-    setRecoverSelected(null);
+    setRecoverSelected([]);
     setRecoverError("");
-  
+
     setRevealedCount((v) => Math.min(lines.length, v + 1));
     setScore((s) => s + 25);
   };
+
   const nextPage = () => {
     if (paused) return;
     if (page === "locked") return;
@@ -460,6 +513,21 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
   const pageProgress = Math.round((pageIndex / (pageOrder.length - 1)) * 100);
   const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
+
+  const previewAnswer = (() => {
+    let slotIndex = 0;
+  
+    return splitThaiGraphemes(recoverMaskedAnswer)
+      .map((token) => {
+        if (token !== "_") return token;
+  
+        const selected = recoverSelected[slotIndex];
+        slotIndex += 1;
+  
+        return selected ? selected.text : "_";
+      })
+      .join("");
+  })();
 
   return (
     <div className="h-[100dvh] w-full overflow-y-auto bg-[#111827] px-2 py-2 text-white">
@@ -593,9 +661,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                           ? "border-green-200 bg-green-400/45"
                           : "border-green-300/70 bg-green-500/35",
                       ].join(" ")}
-                      style={{
-                        left: `${zoneLeftPx}px`,
-                      }}
+                      style={{ left: `${zoneLeftPx}px` }}
                     >
                       <div className="grid h-full place-items-center text-center">
                         <div>
@@ -614,8 +680,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                 <div
                   onPointerDown={(e) => {
                     if (paused) return;
-                    if (accessPhase !== "insert" && accessPhase !== "swipe")
-                      return;
+                    if (accessPhase !== "insert" && accessPhase !== "swipe") return;
 
                     e.currentTarget.setPointerCapture(e.pointerId);
                     setIsDraggingCard(true);
@@ -707,78 +772,93 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
               <div className="text-center font-black text-yellow-300 text-[clamp(20px,5vw,28px)]">
                 {getPageTitle(page)}
               </div>
+
               {unlockMode && (
-  <div className="mt-4 rounded-[24px] border border-green-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(34,197,94,0.25)]">
-    <div className="font-black text-green-300 text-[clamp(20px,5vw,28px)]">
-      🧩 WORD RECOVERY
-    </div>
+                <div className="mt-4 rounded-[24px] border border-green-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(34,197,94,0.25)]">
+                  <div className="font-black text-green-300 text-[clamp(20px,5vw,28px)]">
+                    🔡 LETTER RECOVERY
+                  </div>
 
-    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
-      เติมคำที่หายไป เพื่อกู้ข้อมูลที่ถูกล็อก
-    </p>
+                  <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
+                    เติมตัวอักษรที่หายไป เพื่อกู้ข้อมูลที่ถูกล็อก
+                  </p>
 
-    <div className="mt-3 rounded-2xl bg-white/10 px-3 py-3 text-left">
-      <div className="font-black text-yellow-300 text-[clamp(13px,3.5vw,16px)]">
-        💡 HINT
-      </div>
+                  <div className="mt-3 rounded-2xl bg-white/10 px-3 py-3 text-left">
+                    <div className="font-black text-yellow-300 text-[clamp(13px,3.5vw,16px)]">
+                      💡 HINT
+                    </div>
 
-      <div className="mt-1 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]">
-        อ่านบริบทประโยค แล้วเลือกคำที่หายไปให้ถูกต้อง
-      </div>
-    </div>
+                    <div className="mt-1 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]">
+                      อ่านบริบท แล้วเติมตัวอักษรให้คำสำคัญสมบูรณ์
+                    </div>
+                  </div>
 
-    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
-      <div className="mb-2 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
-        เติมคำที่หายไป
-      </div>
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
+                    <div className="mb-2 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
+                      เติมตัวอักษรที่หายไป
+                    </div>
 
-      <div className="rounded-xl bg-white/10 p-3 font-black leading-snug text-white text-[clamp(16px,4.3vw,21px)]">
-        {recoverBeforeText}
-        <span className="mx-1 rounded-lg bg-yellow-300 px-2 py-1 text-slate-950">
-          {recoverSelected ? recoverSelected.text : "______"}
-        </span>
-        {recoverAfterText}
-      </div>
+                    <div className="rounded-xl bg-white/10 p-3 font-black leading-snug text-white text-[clamp(16px,4.3vw,21px)]">
+                      {recoverBeforeText}
+                      <span className="mx-1 rounded-lg bg-yellow-300 px-2 py-1 font-black tracking-widest text-slate-950">
+                        {previewAnswer || recoverMaskedAnswer}
+                      </span>
+                      {recoverAfterText}
+                    </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        {recoverChoices.map((token) => (
-          <button
-            key={token.id}
-            onClick={() => selectRecoverToken(token)}
-            className={[
-              "rounded-xl px-3 py-2 font-black shadow active:scale-95 text-[clamp(15px,4vw,19px)]",
-              recoverSelected?.id === token.id
-                ? "bg-green-400 text-slate-950"
-                : "bg-yellow-300 text-slate-950",
-            ].join(" ")}
-          >
-            {token.text}
-          </button>
-        ))}
-      </div>
-    </div>
+                    <div className="mt-3 flex min-h-[48px] flex-wrap items-center justify-center gap-2 rounded-xl bg-white/5 p-2">
+                      {recoverSelected.length === 0 ? (
+                        <div className="font-bold text-white/35 text-[clamp(13px,3.5vw,16px)]">
+                          แตะตัวอักษรด้านล่างเพื่อเติมช่องว่าง
+                        </div>
+                      ) : (
+                        recoverSelected.map((token) => (
+                          <button
+                            key={token.id}
+                            onClick={() => removeRecoverToken(token)}
+                            className="rounded-xl bg-green-400 px-3 py-2 font-black text-slate-950 active:scale-95 text-[clamp(15px,4vw,19px)]"
+                          >
+                            {token.text}
+                          </button>
+                        ))
+                      )}
+                    </div>
 
-    {recoverError && (
-      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
-        {recoverError}
-      </div>
-    )}
+                    <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                      {recoverChoices.map((token) => (
+                        <button
+                          key={token.id}
+                          onClick={() => selectRecoverToken(token)}
+                          className="rounded-xl bg-yellow-300 px-3 py-2 font-black text-slate-950 shadow active:scale-95 text-[clamp(15px,4vw,19px)]"
+                        >
+                          {token.text}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-    <button
-      onClick={submitRecoverPuzzle}
-      className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
-    >
-      ✅ SUBMIT / กู้ข้อมูล
-    </button>
-  </div>
-)}
+                  {recoverError && (
+                    <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
+                      {recoverError}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={submitRecoverPuzzle}
+                    className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+                  >
+                    ✅ SUBMIT / กู้ข้อมูล
+                  </button>
+                </div>
+              )}
+
               <div className="mt-4 space-y-3">
                 {lines.map((line, index) => {
                   const revealed = index < revealedCount;
 
                   return (
                     <div
-                      key={`${line}-${index}`}
+                    key={`${line.text}-${index}`}
                       className={[
                         "rounded-2xl px-4 py-4 font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
                         revealed
@@ -786,22 +866,22 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
                           : "bg-black/55 text-white/25 blur-[1px]",
                       ].join(" ")}
                     >
-                      {revealed ? line : "████████████████████████"}
+                      {revealed ? line.text : "████████████████████████"}
                     </div>
                   );
                 })}
               </div>
 
               <button
-  onClick={unlockMode ? undefined : nextPage}
-  disabled={!!unlockMode}
-  className={[
-    "mt-5 w-full rounded-2xl py-4 font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
-    unlockMode ? "bg-slate-600 opacity-60" : "bg-green-600",
-  ].join(" ")}
->
+                onClick={unlockMode ? undefined : nextPage}
+                disabled={!!unlockMode}
+                className={[
+                  "mt-5 w-full rounded-2xl py-4 font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
+                  unlockMode ? "bg-slate-600 opacity-60" : "bg-green-600",
+                ].join(" ")}
+              >
                 {!allRevealed
-                  ? "🔦 เปิดข้อมูลถัดไป"
+                  ? "🔦 เปิดข้อมูลถัดไป 🔒"
                   : page === "lesson"
                   ? "✅ CASE CLOSED / เคสต่อไป"
                   : "เปิดหน้าถัดไป ▶"}

@@ -17,17 +17,22 @@ export type Stage3UnlockStep =
     }
   | { type: "security_verify"; title: string };
 
+export type Stage3CaseLine = {
+  text: string;
+  keywords: string[];
+};
+
 export type Stage3Case = {
   id: string;
   title: string;
   subtitle: string;
   securityLevel: number;
   unlockSteps: Stage3UnlockStep[];
-  incidentReport: string[];
-  evidence: string[];
-  rootCause: string[];
-  prevention: string[];
-  lesson: string;
+  incidentReport: Stage3CaseLine[];
+  evidence: Stage3CaseLine[];
+  rootCause: Stage3CaseLine[];
+  prevention: Stage3CaseLine[];
+  lesson: Stage3CaseLine;
 };
 
 export const stage3Cases: Stage3Case[] = [
@@ -63,13 +68,59 @@ export const stage3Cases: Stage3Case[] = [
     ],
 
     incidentReport: [
-      "พบควันออกจากตู้ควบคุมระบบ Pump ระหว่างเดินเครื่อง",
-      "มีการหยุดใช้งานเพื่อตรวจสอบความปลอดภัย",
+      {
+        text: "พบควันออกจากตู้ควบคุมระบบ Pump ระหว่างเดินเครื่อง",
+        keywords: ["พบควัน", "ตู้ควบคุมระบบ Pump", "ระหว่างเดินเครื่อง"],
+      },
+      {
+        text: "มีการหยุดใช้งานเพื่อตรวจสอบความปลอดภัย",
+        keywords: ["หยุดใช้งาน", "ตรวจสอบความปลอดภัย"],
+      },
     ],
-    evidence: ["พบควัน / กลิ่นไหม้บริเวณตู้ Control", "จุดเสี่ยงเกี่ยวข้องกับระบบไฟฟ้า"],
-    rootCause: ["อาจมีความร้อนสะสมหรือจุดต่อไฟฟ้าผิดปกติ"],
-    prevention: ["หยุดใช้งานทันที", "กั้นพื้นที่", "แจ้งผู้เกี่ยวข้องเพื่อตรวจสอบ"],
-    lesson:
-      "พบควันหรือกลิ่นไหม้จากตู้ไฟฟ้า ต้องหยุดใช้งาน กั้นพื้นที่ และแจ้งผู้เกี่ยวข้องทันที",
+
+    evidence: [
+      {
+        text: "พบควัน / กลิ่นไหม้บริเวณตู้ Control",
+        keywords: ["พบควัน", "กลิ่นไหม้", "ตู้ Control"],
+      },
+      {
+        text: "จุดเสี่ยงเกี่ยวข้องกับระบบไฟฟ้า",
+        keywords: ["จุดเสี่ยง", "ระบบไฟฟ้า"],
+      },
+    ],
+
+    rootCause: [
+      {
+        text: "อาจมีความร้อนสะสมหรือจุดต่อไฟฟ้าผิดปกติ",
+        keywords: ["ความร้อนสะสม", "จุดต่อไฟฟ้า", "ผิดปกติ"],
+      },
+    ],
+
+    prevention: [
+      {
+        text: "หยุดใช้งานทันที",
+        keywords: ["หยุดใช้งานทันที"],
+      },
+      {
+        text: "กั้นพื้นที่",
+        keywords: ["กั้นพื้นที่"],
+      },
+      {
+        text: "แจ้งผู้เกี่ยวข้องเพื่อตรวจสอบ",
+        keywords: ["แจ้งผู้เกี่ยวข้อง", "ตรวจสอบ"],
+      },
+    ],
+
+    lesson: {
+      text: "พบควันหรือกลิ่นไหม้จากตู้ไฟฟ้า ต้องหยุดใช้งาน กั้นพื้นที่ และแจ้งผู้เกี่ยวข้องทันที",
+      keywords: [
+        "พบควัน",
+        "กลิ่นไหม้",
+        "ตู้ไฟฟ้า",
+        "หยุดใช้งาน",
+        "กั้นพื้นที่",
+        "แจ้งผู้เกี่ยวข้อง",
+      ],
+    },
   },
 ];
