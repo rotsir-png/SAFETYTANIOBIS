@@ -348,6 +348,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [inserted, setInserted] = useState(false);
 
   const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
+const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverAnswer, setRecoverAnswer] = useState("");
   const [recoverMaskedAnswer, setRecoverMaskedAnswer] = useState("");
   const [recoverBeforeText, setRecoverBeforeText] = useState("");
@@ -585,7 +586,45 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     }, 650);
   };
   const completeUnlock = () => {
-    completeUnlock();}
+    setScore((s) => s + 25);
+  
+    const nextRevealed = Math.min(lines.length, revealedCount + 1);
+    setRevealedCount(nextRevealed);
+  
+    if (nextRevealed < lines.length) return;
+  
+    window.setTimeout(() => {
+      if (pageIndex >= pageOrder.length - 1) {
+        setCaseIndex((caseValue) => caseValue + 1);
+        setPageIndex(0);
+        setRevealedCount(0);
+        resetAccessCard();
+        return;
+      }
+  
+      setPageIndex((pageValue) => pageValue + 1);
+      setRevealedCount(0);
+    }, 650);
+  };
+  const resetUnlockState = () => {
+    setUnlockMode(null);
+  
+    setRecoverAnswer("");
+    setRecoverMaskedAnswer("");
+    setRecoverBeforeText("");
+    setRecoverAfterText("");
+    setRecoverMissingLetters([]);
+    setRecoverChoices([]);
+    setRecoverSelected([]);
+  
+    setRebuildPieces([]);
+    setRebuildCorrectOrder([]);
+    setDraggingPieceId(null);
+  
+    setFalseInsertionItems([]);
+  
+    setRecoverError("");
+  };
   const startUnlockInfo = () => {
     if (paused || page === "locked" || allRevealed) return;
   
@@ -602,8 +641,14 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
       availableModes.push("falseInsertion");
     }
   
-    const selectedMode =
-      availableModes[Math.floor(Math.random() * availableModes.length)];
+    const modePool =
+  lastUnlockMode && availableModes.length > 1
+    ? availableModes.filter((mode) => mode !== lastUnlockMode)
+    : availableModes;
+
+const selectedMode = modePool[Math.floor(Math.random() * modePool.length)];
+
+setLastUnlockMode(selectedMode);
   
     if (selectedMode === "falseInsertion") {
       setUnlockMode("falseInsertion");
@@ -738,12 +783,11 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     if (stillHasFake) return;
   
     showStageFeedback("✅ CHECKED +25");
-  
-    setUnlockMode(null);
-    setFalseInsertionItems([]);
-    setScore((s) => s + 25);
-  
-    completeUnlock();
+
+setUnlockMode(null);
+setFalseInsertionItems([]);
+
+completeUnlock();
   };
   const nextPage = () => {
     if (paused) return;
@@ -765,10 +809,10 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
   
     if (pageIndex >= pageOrder.length - 1) {
       setCaseIndex((v) => v + 1);
-      setPageIndex(0);
-      setRevealedCount(0);
+setPageIndex(0);
+setRevealedCount(0);
+setLastUnlockMode(null);
       resetAccessCard();
-      setScore((s) => s + 150);
       return;
     }
   
