@@ -16,7 +16,7 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
-type UnlockMode = "letterFill";
+type UnlockMode = "letterFill" | "wordRebuild" | "fileScramble";
 
 type RecoverToken = {
   id: string;
@@ -30,6 +30,10 @@ type RecoverPuzzle = {
   afterText: string;
   missingLetters: string[];
   choices: RecoverToken[];
+};
+type RebuildPiece = {
+  id: string;
+  text: string;
 };
 const pageOrder: CasePage[] = [
   "locked",
@@ -58,17 +62,6 @@ function randomSwipeZone() {
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
-function pickRandomAnswerFromLine(line: string, keywordPriority: string[]) {
-  const phraseMatches = keywordPriority
-    .filter((word) => line.includes(word))
-    .sort((a, b) => b.length - a.length);
-
-  if (phraseMatches.length > 0) {
-    return phraseMatches[Math.floor(Math.random() * phraseMatches.length)];
-  }
-
-  return line.trim().split(/\s+/)[0] || line[0] || "";
-}
 function splitThaiGraphemes(text: string) {
   const SegmenterCtor = (globalThis.Intl as any)?.Segmenter;
 
@@ -91,7 +84,65 @@ function splitThaiGraphemes(text: string) {
 
   return result;
 }
+function makeRebuildPieces(parts: string[]) {
+  const cleanParts = parts.map((p) => p.trim()).filter(Boolean);
 
+  const pieces = shuffle(cleanParts).map((text, index) => ({
+    id: `${text}-${index}-${Math.random()}`,
+    text,
+  }));
+
+  return {
+    pieces,
+    correctOrder: cleanParts,
+  };
+}
+
+function splitKeywordForRebuild(keyword: string) {
+  const bySpace = keyword.split(/\s+/).map((p) => p.trim()).filter(Boolean);
+  if (bySpace.length >= 2) return bySpace;
+
+  const tokens = splitThaiGraphemes(keyword);
+
+  if (tokens.length <= 4) return [];
+  if (tokens.length <= 7) {
+    const mid = Math.ceil(tokens.length / 2);
+    return [tokens.slice(0, mid).join(""), tokens.slice(mid).join("")];
+  }
+
+  const one = Math.ceil(tokens.length / 3);
+  const two = Math.ceil((tokens.length * 2) / 3);
+
+  return [
+    tokens.slice(0, one).join(""),
+    tokens.slice(one, two).join(""),
+    tokens.slice(two).join(""),
+  ].filter(Boolean);
+}
+
+function splitLineForScramble(text: string, keywords: string[]) {
+  const keywordParts = keywords
+    .filter((keyword) => text.includes(keyword))
+    .sort((a, b) => text.indexOf(a) - text.indexOf(b));
+
+  if (keywordParts.length >= 2) return keywordParts;
+
+  const slashParts = text.split(/[\/|]/g).map((p) => p.trim()).filter(Boolean);
+  if (slashParts.length >= 2) return slashParts;
+
+  const words = text.split(/\s+/).map((p) => p.trim()).filter(Boolean);
+  if (words.length >= 3) return words;
+
+  return [];
+}
+
+function canWordRebuild(line: Stage3CaseLine) {
+  return line.keywords.some((keyword) => splitKeywordForRebuild(keyword).length >= 2);
+}
+
+function canFileScramble(line: Stage3CaseLine) {
+  return splitLineForScramble(line.text, line.keywords).length >= 2;
+}
 function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
   const answer =
     line.keywords.length > 0
@@ -111,13 +162,24 @@ function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
     .filter((item) => item.token !== " ")
     .filter((item) => item.token !== "-");
 
-  const minMissing = 3;
-  const maxMissing = 5;
-
-  let missingCount =
-    minMissing + Math.floor(Math.random() * (maxMissing - minMissing + 1));
-
-  missingCount = Math.min(missingCount, candidateIndexes.length);
+    let minMissing = 3;
+    let maxMissing = 5;
+    
+    if (candidateIndexes.length <= 4) {
+      minMissing = 2;
+      maxMissing = 2;
+    } else if (candidateIndexes.length <= 6) {
+      minMissing = 2;
+      maxMissing = 3;
+    } else if (candidateIndexes.length <= 9) {
+      minMissing = 3;
+      maxMissing = 4;
+    }
+    
+    let missingCount =
+      minMissing + Math.floor(Math.random() * (maxMissing - minMissing + 1));
+    
+    missingCount = Math.min(missingCount, candidateIndexes.length);
 
   let missingIndexes = shuffle(candidateIndexes).slice(0, missingCount);
 
@@ -208,6 +270,9 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
   const [recoverSelected, setRecoverSelected] = useState<RecoverToken[]>([]);
 const [recoverError, setRecoverError] = useState("");
+const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
+const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
+const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
