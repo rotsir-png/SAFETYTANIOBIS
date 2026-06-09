@@ -189,6 +189,12 @@ if (p) {
     }
   
     if (typeof result?.stage === 'number') {
+      if (result.stage >= 3) {
+        refreshProgress();
+        setScreen('campaign');
+        return;
+      }
+    
       setScreen(`stage${result.stage}` as Screen);
     }
   }, [result]);
@@ -377,12 +383,16 @@ if (p) {
         />
       )}
 
-      {screen === 'stage3' && (
-        <Stage3TapHazard
-          key={`s3-${currentStage}`}
-          onComplete={(score) => handleStageComplete(score, 3)}
-        />
-      )}
+{screen === 'stage3' && (
+  <CampaignScreen
+    progress={progress}
+    onStage={(s) => {
+      setCurrentStage(s);
+      setScreen(`stage${s}` as Screen);
+    }}
+    onBack={() => setScreen('title')}
+  />
+)}
 
 
 {screen === 'endless' && profile && (
