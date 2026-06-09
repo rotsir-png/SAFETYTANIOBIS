@@ -16,7 +16,7 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
-type UnlockMode = "letterFill" | "fileScramble";
+type UnlockMode = "letterFill" | "fileScramble" | "falseInsertion";
 
 type RecoverToken = {
   id: string;
@@ -35,6 +35,11 @@ type RebuildPiece = {
   id: string;
   text: string;
   locked?: boolean;
+};
+type FalseInsertionItem = {
+  id: string;
+  text: string;
+  fake: boolean;
 };
 const pageOrder: CasePage[] = [
   "locked",
@@ -180,6 +185,49 @@ const unlockedParts = cleanParts
 function canFileScramble(line: Stage3CaseLine) {
   return splitLineForScramble(line.text, line.keywords).length >= 2;
 }
+function canFalseInsertion(line: Stage3CaseLine) {
+  return line.keywords.filter((k) => k.trim()).length >= 2;
+}
+
+function makeFalseInsertionPuzzle(line: Stage3CaseLine): FalseInsertionItem[] {
+  const realItems = line.keywords.map((k) => k.trim()).filter(Boolean);
+
+  const allKeywords = stage3Cases
+    .flatMap((item) => [
+      ...item.incidentReport,
+      ...item.evidence,
+      ...item.rootCause,
+      ...item.prevention,
+      item.lesson,
+    ])
+    .flatMap((item) => item.keywords)
+    .map((k) => k.trim())
+    .filter(Boolean);
+
+  const decoys = shuffle(
+    Array.from(new Set(allKeywords))
+      .filter((k) => !realItems.includes(k))
+      .filter((k) => !line.text.includes(k))
+  );
+
+  const fakeCount =
+    line.text.length >= 45 || realItems.length >= 4 ? 2 : 1;
+
+  const fakeItems = decoys.slice(0, fakeCount);
+
+  return shuffle([
+    ...realItems.map((text, index) => ({
+      id: `real-${text}-${index}-${Math.random()}`,
+      text,
+      fake: false,
+    })),
+    ...fakeItems.map((text, index) => ({
+      id: `fake-${text}-${index}-${Math.random()}`,
+      text,
+      fake: true,
+    })),
+  ]);
+}
 function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
   const answer =
     line.keywords.length > 0
@@ -286,6 +334,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(0);
   const [score, setScore] = useState(0);
+  const [stageFeedback, setStageFeedback] = useState("");
 
   const [accessPhase, setAccessPhase] = useState<AccessPhase>("insert");
   const [cardY, setCardY] = useState(0);
@@ -309,6 +358,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 const [recoverError, setRecoverError] = useState("");
 const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
 const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
+const [falseInsertionItems, setFalseInsertionItems] = useState<FalseInsertionItem[]>([]);
 const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
 
   const zoneOffsetRef = useRef(0);
@@ -527,16 +577,40 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
 
     missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
   };
-
+  const showStageFeedback = (message: string) => {
+    setStageFeedback(message);
+  
+    window.setTimeout(() => {
+      setStageFeedback("");
+    }, 650);
+  };
+  const completeUnlock = () => {
+    completeUnlock();}
   const startUnlockInfo = () => {
     if (paused || page === "locked" || allRevealed) return;
   
     const targetLine = lines[revealedCount];
     if (!targetLine) return;
   
-    const selectedMode: UnlockMode = canFileScramble(targetLine)
-      ? "fileScramble"
-      : "letterFill";
+    const availableModes: UnlockMode[] = ["letterFill"];
+  
+    if (canFileScramble(targetLine)) {
+      availableModes.push("fileScramble");
+    }
+  
+    if (canFalseInsertion(targetLine)) {
+      availableModes.push("falseInsertion");
+    }
+  
+    const selectedMode =
+      availableModes[Math.floor(Math.random() * availableModes.length)];
+  
+    if (selectedMode === "falseInsertion") {
+      setUnlockMode("falseInsertion");
+      setFalseInsertionItems(makeFalseInsertionPuzzle(targetLine));
+      setRecoverError("");
+      return;
+    }
   
     if (selectedMode === "letterFill") {
       const puzzle = makeRecoverPuzzle(targetLine);
@@ -578,21 +652,23 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
   };
 
   const submitRecoverPuzzle = () => {
-    if (paused || !unlockMode) return;
-
+    if (paused || unlockMode !== "letterFill") return;
+  
     if (recoverSelected.length < recoverMissingLetters.length) {
       setRecoverError("❌ เติมตัวอักษรให้ครบก่อน");
       return;
     }
-
+  
     const playerAnswer = recoverSelected.map((token) => token.text).join("");
     const correctAnswer = recoverMissingLetters.join("");
-
+  
     if (playerAnswer !== correctAnswer) {
       setRecoverError("❌ ตัวอักษรยังไม่ถูก ลองดูรูปคำอีกที");
       return;
     }
-
+  
+    showStageFeedback("✅ RECOVERED +25");
+  
     setUnlockMode(null);
     setRecoverAnswer("");
     setRecoverMaskedAnswer("");
@@ -602,9 +678,8 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     setRecoverChoices([]);
     setRecoverSelected([]);
     setRecoverError("");
-
-    setRevealedCount((v) => Math.min(lines.length, v + 1));
-    setScore((s) => s + 25);
+  
+    completeUnlock();
   };
   const submitRebuildPuzzle = () => {
     if (paused || unlockMode !== "fileScramble") return;
@@ -617,32 +692,15 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
       return;
     }
   
+    showStageFeedback("✅ FILE RESTORED +25");
+  
     setUnlockMode(null);
     setRebuildPieces([]);
     setRebuildCorrectOrder([]);
     setDraggingPieceId(null);
     setRecoverError("");
   
-    setScore((s) => s + 25);
-  
-    const nextRevealed = Math.min(lines.length, revealedCount + 1);
-    setRevealedCount(nextRevealed);
-  
-    if (nextRevealed >= lines.length) {
-      window.setTimeout(() => {
-        if (pageIndex >= pageOrder.length - 1) {
-          setCaseIndex((caseValue) => caseValue + 1);
-          setPageIndex(0);
-          setRevealedCount(0);
-          resetAccessCard();
-          setScore((s) => s + 150);
-          return;
-        }
-  
-        setPageIndex((pageValue) => pageValue + 1);
-        setRevealedCount(0);
-      }, 500);
-    }
+    completeUnlock();
   };
   
   const swapRebuildPieces = (targetId: string) => {
@@ -663,6 +721,29 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     });
   
     setRecoverError("");
+  };
+  const selectFalseInsertionItem = (item: FalseInsertionItem) => {
+    if (paused || unlockMode !== "falseInsertion") return;
+  
+    if (!item.fake) {
+      setRecoverError("❌ อันนี้เป็นข้อมูลจริงของเคส");
+      return;
+    }
+  
+    const nextItems = falseInsertionItems.filter((x) => x.id !== item.id);
+    setFalseInsertionItems(nextItems);
+    setRecoverError("");
+  
+    const stillHasFake = nextItems.some((x) => x.fake);
+    if (stillHasFake) return;
+  
+    showStageFeedback("✅ CHECKED +25");
+  
+    setUnlockMode(null);
+    setFalseInsertionItems([]);
+    setScore((s) => s + 25);
+  
+    completeUnlock();
   };
   const nextPage = () => {
     if (paused) return;
@@ -1035,6 +1116,37 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     </button>
   </div>
 )}
+{unlockMode === "falseInsertion" && (
+  <div className="mt-4 rounded-[24px] border border-orange-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(251,146,60,0.22)]">
+    <div className="font-black text-orange-300 text-[clamp(20px,5vw,28px)]">
+      ตรวจข้อมูลแปลกปลอม
+    </div>
+
+    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
+      แตะข้อมูลที่ไม่เกี่ยวกับประโยคนี้ออก
+    </p>
+
+    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
+      <div className="flex min-h-[120px] flex-wrap content-start items-start justify-start gap-2 rounded-2xl bg-white/5 p-3">
+        {falseInsertionItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => selectFalseInsertionItem(item)}
+            className="rounded-2xl bg-yellow-300 px-3 py-3 text-left font-black leading-snug text-slate-950 shadow-lg active:scale-95 text-[clamp(15px,4vw,20px)]"
+          >
+            {item.text}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {recoverError && (
+      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
+        {recoverError}
+      </div>
+    )}
+  </div>
+)}
 {unlockMode === "fileScramble" && (
   <div className="mt-4 rounded-[24px] border border-purple-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(216,180,254,0.22)]">
     <div className="font-black text-purple-300 text-[clamp(20px,5vw,28px)]">
@@ -1138,7 +1250,15 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
         </div>
       </div>
 
-      <div className="relative z-[99999]">{PauseOverlay}</div>
+      {stageFeedback && (
+  <div className="pointer-events-none fixed inset-0 z-[99998] grid place-items-center px-4">
+    <div className="animate-bounce rounded-[28px] border-4 border-yellow-300 bg-black px-5 py-4 text-center font-black text-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.75)] text-[clamp(24px,7vw,38px)]">
+      {stageFeedback}
+    </div>
+  </div>
+)}
+
+<div className="relative z-[99999]">{PauseOverlay}</div>
     </div>
   );
 }
