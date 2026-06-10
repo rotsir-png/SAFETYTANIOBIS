@@ -870,7 +870,9 @@ setLastUnlockMode(null);
 
   const pageProgress = Math.round((pageIndex / (pageOrder.length - 1)) * 100);
   const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
-
+  const revealedTextList = lines.filter((_, index) =>
+  revealedIndexes.includes(index)
+);
   const previewAnswer = (() => {
     let slotIndex = 0;
   
@@ -887,47 +889,72 @@ setLastUnlockMode(null);
   })();
 
   return (
-    <div className="h-[100dvh] w-full overflow-y-auto bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white">
-      <div className="mx-auto flex w-full max-w-[430px] flex-col pb-5">
-        <div className="flex items-start justify-between px-1">
-          <div>
-          <div className="font-game font-bold text-white/45 text-[clamp(12px,3vw,15px)]">
-              ด่าน 3
-            </div>
-            <h1 className="font-game font-black leading-none text-white text-[clamp(21px,5.6vw,29px)]">
-ACCIDENT INVESTIGATION
+    <div className="h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white">
+      <div className="mx-auto flex h-full w-full max-w-[430px] flex-col">
+      <div className="flex items-center justify-between px-1">
+  <div className="min-w-0">
+    <div className="font-game font-bold text-white/45 text-[clamp(11px,3vw,13px)]">
+      ด่าน 3
+    </div>
+
+    <h1 className="font-game font-black leading-none text-white text-[clamp(21px,5.6vw,29px)]">
+  ACCIDENT INVESTIGATION
 </h1>
-<div className="mt-1 font-game font-black text-yellow-300 text-[clamp(14px,3.8vw,19px)]">
+  </div>
+
+  <div className="flex shrink-0 items-center gap-2">
+    <PauseButton paused={paused} onToggle={togglePause} />
+
+    <div className="text-right">
+      <div className="font-game font-black text-yellow-300 text-[clamp(22px,6vw,30px)]">
+        {score}
+      </div>
+      <div className="font-game font-bold text-white/45 text-[clamp(10px,3vw,12px)]">
+        คะแนน
+      </div>
+    </div>
+  </div>
 </div>
-          </div>
 
-          <div className="flex shrink-0 items-start gap-3">
-            <PauseButton paused={paused} onToggle={togglePause} />
+<div className="mt-2 rounded-2xl border border-white/10 bg-black/45 p-2">
+  <div className="mb-1 text-center font-game font-black text-white/55 text-[clamp(10px,2.8vw,12px)]">
+    ตอนนี้อยู่ขั้นตอน
+  </div>
 
-            <div className="text-right">
-            <div className="font-black text-yellow-300 text-[clamp(27px,7vw,36px)]">
-                {score}
-              </div>
-              <div className="font-game font-bold text-white/45 text-[clamp(11px,3vw,14px)]">
-                คะแนน
-              </div>
-            </div>
-          </div>
+  <div className="flex flex-wrap justify-center gap-1.5">
+    {getInvestigationSteps().map((step) => {
+      const stepIndex = pageOrder.indexOf(step.page);
+      const isCurrent = page === step.page;
+      const isDone = pageIndex > stepIndex;
+
+      return (
+        <div
+          key={step.page}
+          className={[
+            "rounded-full px-2.5 py-1 font-game font-black text-[clamp(11px,3vw,13px)]",
+            isCurrent
+              ? "animate-pulse bg-yellow-300 text-slate-950 shadow-[0_0_14px_rgba(250,204,21,0.65)]"
+              : isDone
+              ? "bg-green-500 text-white"
+              : "bg-white/10 text-white/45",
+          ].join(" ")}
+        >
+          {isDone ? "✓ " : isCurrent ? "● " : ""}
+          {step.label}
         </div>
+      );
+    })}
+  </div>
+</div>
+<div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-3">
+  <div className="mb-1 font-game font-black text-yellow-300 text-[clamp(12px,3vw,14px)]">
+    รายละเอียดเหตุการณ์
+  </div>
 
-        <div className="mt-3 rounded-[1.25rem] border-2 border-white/10 bg-slate-950/80 p-3 shadow-2xl">
-        <div className="rounded-[20px] border border-white/10 bg-black/35 px-3 py-3 text-center shadow-lg">
-        <div className="font-game font-black text-yellow-300 text-[clamp(14px,3.8vw,18px)]">
-        ⚠️ SAFETY INCIDENT
-            </div>
-            <h2 className="mt-1 font-game font-black leading-tight text-white text-[clamp(20px,5vw,26px)]">
-              {currentCase.title}
-            </h2>
-            <p className="mt-2 font-bold leading-snug text-red-300 text-[clamp(13px,3.8vw,16px)]">
-  หากจัดการไม่ถูกต้อง อาจเกิดการบาดเจ็บ ความเสียหาย หรืออุบัติเหตุรุนแรงได้
-</p>
-          </div>
-
+  <div className="font-game font-bold leading-relaxed text-white text-[clamp(15px,4vw,19px)]">
+    {currentCase.subtitle}
+  </div>
+</div>
           {page === "locked" ? (
             <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-900/90 p-3 text-center">
               <div className="font-black text-yellow-300 text-[clamp(24px,6vw,32px)]">
@@ -1111,31 +1138,37 @@ ACCIDENT INVESTIGATION
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-[1.25rem] border-2 border-white/10 bg-slate-950/90 p-4 shadow-2xl">
+            <div className="mt-2 min-h-0 flex-1 rounded-[1.1rem] border border-white/10 bg-slate-950/90 p-3 shadow-xl">
               <div className="rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left">
   <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
     {getPageStory(page).title}
   </div>
 
   <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
-    {getPageStory(page).body}
+  {getPageStory(page).body}
+</div>
+
+{revealedTextList.length > 0 && !unlockMode && (
+  <div className="mt-3 space-y-2">
+    {revealedTextList.map((line, index) => (
+      <div
+        key={`${line.text}-${index}`}
+        className="rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(15px,4vw,19px)]"
+      >
+        ✅ {line.text}
+      </div>
+    ))}
   </div>
+)}
 </div>
 
               {unlockMode === "letterFill" && (
-  <div className="mt-4 rounded-[24px] border border-green-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(34,197,94,0.25)]">
-    <div className="font-game font-black text-green-300 text-[clamp(19px,5vw,25px)]">
+ <div className="mt-2 rounded-[16px] border border-white/10 bg-black/35 p-2 text-center">
+    <div className="font-game font-black text-white/70 text-[clamp(15px,4vw,18px)]">
   เติมตัวอักษรที่หายไป
 </div>
 
-    <p className="mt-2 font-game font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
-    เติมคำสำคัญจากข้อมูลอุบัติเหตุให้สมบูรณ์
-    </p>
-
     <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
-      <div className="mb-2 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
-        เติมตัวอักษรที่หายไป
-      </div>
 
       <div className="rounded-xl bg-white/10 p-3 font-black leading-snug text-white text-[clamp(16px,4.3vw,21px)]">
         {recoverBeforeText}
@@ -1184,9 +1217,9 @@ ACCIDENT INVESTIGATION
 
     <button
       onClick={submitRecoverPuzzle}
-      className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+      className="mt-3 w-full rounded-xl bg-green-500 py-3 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]"
     >
-      ✅ SUBMIT / กู้ข้อมูล
+      ✅ ส่งคำตอบ
     </button>
   </div>
 )}
@@ -1291,55 +1324,56 @@ ACCIDENT INVESTIGATION
     </button>
   </div>
 )}
-              <div className="mt-4 space-y-3">
-              {lines.map((line, index) => {
-  const revealed = revealedIndexes.includes(index);
 
-  return (
+<div className={unlockMode ? "hidden" : "mt-4 space-y-3"}>
+{lines
+  .filter((_, index) => !revealedIndexes.includes(index) && !unlockMode)
+  .map((line, index) => {
+    const originalIndex = lines.indexOf(line);
+    const revealed = revealedIndexes.includes(originalIndex);
+
+    return (
     <button
-      key={`${line.text}-${index}`}
+    key={`${line.text}-${originalIndex}`}
       onClick={() => {
         if (revealed || unlockMode) return;
-        startUnlockInfo(index);
+        startUnlockInfo(originalIndex);
       }}
       disabled={revealed || !!unlockMode}
       className={[
         "w-full rounded-2xl px-4 py-4 text-left font-game font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
         revealed
           ? "bg-white text-slate-950"
-          : "bg-black/55 text-yellow-300 border border-yellow-300/20 active:scale-95",
+          : "bg-gradient-to-r from-yellow-400 to-yellow-300 text-slate-950 border-2 border-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.45)] active:scale-95 animate-pulse",
       ].join(" ")}
     >
       {revealed ? (
         line.text
       ) : (
-        <div className="text-center font-game font-black">
-          🔒 แตะเพื่อเปิดข้อมูลนี้
-        </div>
+        <div className="flex items-center justify-center gap-2">
+  <span className="text-[22px]">🔒</span>
+
+  <span className="font-game font-black">
+    แตะเพื่อเปิดข้อมูล
+  </span>
+</div>
       )}
     </button>
   );
 })}
               </div>
 
-              <button
-  onClick={nextPage}
-  disabled={!!unlockMode}
-                className={[
-                  "mt-5 w-full rounded-2xl py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
-                  unlockMode ? "bg-slate-600 opacity-60" : "bg-green-600",
-                ].join(" ")}
-              >
-                {!allRevealed
-                  ? "แตะบรรทัดที่ล็อกเพื่อเปิดข้อมูล"
-                  : page === "lesson"
-                  ? "✅ CASE CLOSED / เคสต่อไป"
-                  : "เปิดหน้าถัดไป ▶"}
-              </button>
+              {allRevealed && !unlockMode && (
+  <button
+    onClick={nextPage}
+    className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
+  >
+    {page === "lesson" ? "✅ CASE CLOSED / เคสต่อไป" : "เปิดหน้าถัดไป ▶"}
+  </button>
+)}
             </div>
           )}
         </div>
-      </div>
 
       {stageFeedback && (
   <div className="pointer-events-none fixed inset-0 z-[99998] grid place-items-center px-4">
@@ -1393,8 +1427,8 @@ function getPageStory(page: CasePage) {
 
   if (page === "lesson") {
     return {
-      title: "🎯 สิ่งที่ต้องจำ",
-      body: "สรุปสิ่งสำคัญที่ควรนำไปใช้ในการทำงานจริง",
+      title: "ดังนั้น",
+      body: "",
     };
   }
 
@@ -1402,4 +1436,13 @@ function getPageStory(page: CasePage) {
     title: "🔒 เริ่มการตรวจสอบเหตุการณ์",
     body: "ปลดล็อกข้อมูลเพื่อดูว่าอุบัติเหตุนี้เกิดขึ้นได้อย่างไร",
   };
+}
+function getInvestigationSteps() {
+  return [
+    { page: "report", label: "เหตุการณ์" },
+    { page: "evidence", label: "หลักฐาน" },
+    { page: "rootCause", label: "สาเหตุ" },
+    { page: "prevention", label: "ป้องกัน" },
+    { page: "lesson", label: "บทเรียน" },
+  ] as const;
 }
