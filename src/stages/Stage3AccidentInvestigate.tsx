@@ -333,6 +333,8 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [caseIndex, setCaseIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(0);
+  const [revealedIndexes, setRevealedIndexes] = useState<number[]>([]);
+const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [stageFeedback, setStageFeedback] = useState("");
 
@@ -447,8 +449,14 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   };
 
   const lines = getLines();
-  const allRevealed = page === "locked" || revealedCount >= lines.length;
-
+  const allRevealed = page === "locked" || revealedIndexes.length >= lines.length;
+  useEffect(() => {
+    if (page === "locked" || lines.length === 0) return;
+  
+    const randomIndex = Math.floor(Math.random() * lines.length);
+    setRevealedIndexes([randomIndex]);
+    setPendingLineIndex(null);
+  }, [caseIndex, pageIndex]);
   const resetAccessCard = () => {
     zoneOffsetRef.current = 0;
     zoneCenterPxRef.current = 0;
@@ -589,22 +597,31 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const completeUnlock = () => {
     setScore((s) => s + 25);
   
-    const nextRevealed = Math.min(lines.length, revealedCount + 1);
-    setRevealedCount(nextRevealed);
+    const targetIndex = pendingLineIndex;
+    if (targetIndex === null) return;
   
-    if (nextRevealed < lines.length) return;
+    const nextRevealedIndexes = Array.from(
+      new Set([...revealedIndexes, targetIndex])
+    );
+  
+    setRevealedIndexes(nextRevealedIndexes);
+    setPendingLineIndex(null);
+  
+    if (nextRevealedIndexes.length < lines.length) return;
   
     window.setTimeout(() => {
       if (pageIndex >= pageOrder.length - 1) {
         setCaseIndex((caseValue) => caseValue + 1);
         setPageIndex(0);
         setRevealedCount(0);
+        setRevealedIndexes([]);
         resetAccessCard();
         return;
       }
   
       setPageIndex((pageValue) => pageValue + 1);
       setRevealedCount(0);
+      setRevealedIndexes([]);
     }, 650);
   };
   const resetUnlockState = () => {
@@ -627,11 +644,20 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   
     setRecoverError("");
   };
-  const startUnlockInfo = () => {
+  const startUnlockInfo = (lineIndex?: number) => {
     if (paused || page === "locked" || allRevealed) return;
   
-    const targetLine = lines[revealedCount];
-    if (!targetLine) return;
+    const targetIndex =
+  typeof lineIndex === "number"
+    ? lineIndex
+    : lines.findIndex((_, index) => !revealedIndexes.includes(index));
+
+if (targetIndex < 0) return;
+
+const targetLine = lines[targetIndex];
+if (!targetLine) return;
+
+setPendingLineIndex(targetIndex);
   
     const availableModes: UnlockMode[] = ["letterFill"];
   
@@ -861,59 +887,45 @@ setLastUnlockMode(null);
   })();
 
   return (
-    <div className="h-[100dvh] w-full overflow-y-auto bg-[#111827] px-2 py-2 text-white">
+    <div className="h-[100dvh] w-full overflow-y-auto bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white">
       <div className="mx-auto flex w-full max-w-[430px] flex-col pb-5">
         <div className="flex items-start justify-between px-1">
           <div>
-            <div className="font-bold text-white/45 text-[clamp(12px,3vw,15px)]">
+          <div className="font-game font-bold text-white/45 text-[clamp(12px,3vw,15px)]">
               ด่าน 3
             </div>
-            <h1 className="font-black leading-none text-[clamp(21px,5.6vw,29px)]">
-              🔒 CASE LOCKED
-            </h1>
-            <div className="mt-1 font-black text-yellow-300 text-[clamp(14px,3.8vw,19px)]">
-              Interactive Case File
-            </div>
+            <h1 className="font-game font-black leading-none text-white text-[clamp(21px,5.6vw,29px)]">
+ACCIDENT INVESTIGATION
+</h1>
+<div className="mt-1 font-game font-black text-yellow-300 text-[clamp(14px,3.8vw,19px)]">
+</div>
           </div>
 
           <div className="flex shrink-0 items-start gap-3">
             <PauseButton paused={paused} onToggle={togglePause} />
 
             <div className="text-right">
-              <div className="font-black text-yellow-300 text-[clamp(27px,7vw,36px)]">
+            <div className="font-black text-yellow-300 text-[clamp(27px,7vw,36px)]">
                 {score}
               </div>
-              <div className="font-bold text-white/45 text-[clamp(11px,3vw,14px)]">
+              <div className="font-game font-bold text-white/45 text-[clamp(11px,3vw,14px)]">
                 คะแนน
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-3 rounded-2xl border border-white/10 bg-black/45 p-3">
-          <div className="flex justify-between font-black text-[clamp(13px,3.4vw,16px)]">
-            <span>CASE PROGRESS</span>
-            <span className="text-green-300">{pageProgress}%</span>
-          </div>
-          <div className="mt-2 h-4 overflow-hidden rounded-full bg-white/15">
-            <div
-              className="h-full rounded-full bg-green-500 transition-all duration-300"
-              style={{ width: `${pageProgress}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-[24px] border border-yellow-300/20 bg-black/45 p-3 shadow-2xl">
-          <div className="rounded-[20px] border border-yellow-300/30 bg-yellow-300/10 px-3 py-3 text-center">
-            <div className="font-black text-yellow-300 text-[clamp(14px,3.8vw,18px)]">
-              CASE FILE #{currentCase.id}
+        <div className="mt-3 rounded-[1.25rem] border-2 border-white/10 bg-slate-950/80 p-3 shadow-2xl">
+        <div className="rounded-[20px] border border-white/10 bg-black/35 px-3 py-3 text-center shadow-lg">
+        <div className="font-game font-black text-yellow-300 text-[clamp(14px,3.8vw,18px)]">
+        ⚠️ SAFETY INCIDENT
             </div>
-            <h2 className="mt-1 font-black leading-tight text-[clamp(20px,5vw,26px)]">
+            <h2 className="mt-1 font-game font-black leading-tight text-white text-[clamp(20px,5vw,26px)]">
               {currentCase.title}
             </h2>
-            <p className="mt-1 font-bold leading-snug text-white/80 text-[clamp(12px,3.4vw,15px)]">
-              {currentCase.subtitle}
-            </p>
+            <p className="mt-2 font-bold leading-snug text-red-300 text-[clamp(13px,3.8vw,16px)]">
+  หากจัดการไม่ถูกต้อง อาจเกิดการบาดเจ็บ ความเสียหาย หรืออุบัติเหตุรุนแรงได้
+</p>
           </div>
 
           {page === "locked" ? (
@@ -1099,30 +1111,26 @@ setLastUnlockMode(null);
               </div>
             </div>
           ) : (
-            <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-900/90 p-4">
-              <div className="text-center font-black text-yellow-300 text-[clamp(20px,5vw,28px)]">
-                {getPageTitle(page)}
-              </div>
+            <div className="mt-4 rounded-[1.25rem] border-2 border-white/10 bg-slate-950/90 p-4 shadow-2xl">
+              <div className="rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left">
+  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
+    {getPageStory(page).title}
+  </div>
+
+  <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
+    {getPageStory(page).body}
+  </div>
+</div>
 
               {unlockMode === "letterFill" && (
   <div className="mt-4 rounded-[24px] border border-green-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(34,197,94,0.25)]">
-    <div className="font-black text-green-300 text-[clamp(20px,5vw,28px)]">
-      🔡 LETTER RECOVERY
-    </div>
+    <div className="font-game font-black text-green-300 text-[clamp(19px,5vw,25px)]">
+  เติมตัวอักษรที่หายไป
+</div>
 
-    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
-      เติมตัวอักษรที่หายไป เพื่อกู้ข้อมูลที่ถูกล็อก
+    <p className="mt-2 font-game font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
+    เติมคำสำคัญจากข้อมูลอุบัติเหตุให้สมบูรณ์
     </p>
-
-    <div className="mt-3 rounded-2xl bg-white/10 px-3 py-3 text-left">
-      <div className="font-black text-yellow-300 text-[clamp(13px,3.5vw,16px)]">
-        💡 HINT
-      </div>
-
-      <div className="mt-1 font-bold leading-snug text-white text-[clamp(15px,4vw,19px)]">
-        อ่านบริบท แล้วเติมตัวอักษรให้คำสำคัญสมบูรณ์
-      </div>
-    </div>
 
     <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
       <div className="mb-2 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
@@ -1147,7 +1155,7 @@ setLastUnlockMode(null);
             <button
               key={token.id}
               onClick={() => removeRecoverToken(token)}
-              className="rounded-xl bg-green-400 px-3 py-2 font-black text-slate-950 active:scale-95 text-[clamp(15px,4vw,19px)]"
+              className="rounded-xl bg-green-400 px-3 py-2 font-game font-black text-slate-950 active:scale-95 text-[clamp(15px,4vw,19px)]"
             >
               {token.text}
             </button>
@@ -1160,7 +1168,7 @@ setLastUnlockMode(null);
           <button
             key={token.id}
             onClick={() => selectRecoverToken(token)}
-            className="rounded-xl bg-yellow-300 px-3 py-2 font-black text-slate-950 shadow active:scale-95 text-[clamp(15px,4vw,19px)]"
+            className="rounded-xl bg-yellow-300 px-3 py-2 font-game font-black text-slate-950 shadow active:scale-95 text-[clamp(15px,4vw,19px)]"
           >
             {token.text}
           </button>
@@ -1176,7 +1184,7 @@ setLastUnlockMode(null);
 
     <button
       onClick={submitRecoverPuzzle}
-      className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+      className="mt-4 w-full rounded-2xl bg-green-500 py-4 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
     >
       ✅ SUBMIT / กู้ข้อมูล
     </button>
@@ -1184,8 +1192,8 @@ setLastUnlockMode(null);
 )}
 {unlockMode === "falseInsertion" && (
   <div className="mt-4 rounded-[24px] border border-orange-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(251,146,60,0.22)]">
-    <div className="font-black text-orange-300 text-[clamp(20px,5vw,28px)]">
-      ตรวจข้อมูลแปลกปลอม
+    <div className="font-game font-black text-orange-300 text-[clamp(20px,5vw,28px)]">
+    ลบข้อมูลที่ไม่เกี่ยวข้อง
     </div>
 
     <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
@@ -1215,8 +1223,8 @@ setLastUnlockMode(null);
 )}
 {unlockMode === "fileScramble" && (
   <div className="mt-4 rounded-[24px] border border-purple-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(216,180,254,0.22)]">
-    <div className="font-black text-purple-300 text-[clamp(20px,5vw,28px)]">
-      📄 FILE SCRAMBLE
+    <div className="font-game font-black text-purple-300 text-[clamp(20px,5vw,28px)]">
+    เรียงข้อมูลให้ถูกต้อง
     </div>
 
     <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
@@ -1277,42 +1285,53 @@ setLastUnlockMode(null);
 
     <button
       onClick={submitRebuildPuzzle}
-      className="mt-4 w-full rounded-2xl bg-purple-400 py-4 font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+      className="mt-4 w-full rounded-2xl bg-purple-400 py-4 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
     >
       📄 REBUILD FILE / กู้ประโยค
     </button>
   </div>
 )}
               <div className="mt-4 space-y-3">
-                {lines.map((line, index) => {
-                  const revealed = index < revealedCount;
+              {lines.map((line, index) => {
+  const revealed = revealedIndexes.includes(index);
 
-                  return (
-                    <div
-                    key={`${line.text}-${index}`}
-                      className={[
-                        "rounded-2xl px-4 py-4 font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
-                        revealed
-                          ? "bg-white text-slate-950"
-                          : "bg-black/55 text-white/25 blur-[1px]",
-                      ].join(" ")}
-                    >
-                      {revealed ? line.text : "████████████████████████"}
-                    </div>
-                  );
-                })}
+  return (
+    <button
+      key={`${line.text}-${index}`}
+      onClick={() => {
+        if (revealed || unlockMode) return;
+        startUnlockInfo(index);
+      }}
+      disabled={revealed || !!unlockMode}
+      className={[
+        "w-full rounded-2xl px-4 py-4 text-left font-game font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
+        revealed
+          ? "bg-white text-slate-950"
+          : "bg-black/55 text-yellow-300 border border-yellow-300/20 active:scale-95",
+      ].join(" ")}
+    >
+      {revealed ? (
+        line.text
+      ) : (
+        <div className="text-center font-game font-black">
+          🔒 แตะเพื่อเปิดข้อมูลนี้
+        </div>
+      )}
+    </button>
+  );
+})}
               </div>
 
               <button
   onClick={nextPage}
   disabled={!!unlockMode}
                 className={[
-                  "mt-5 w-full rounded-2xl py-4 font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
+                  "mt-5 w-full rounded-2xl py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]",
                   unlockMode ? "bg-slate-600 opacity-60" : "bg-green-600",
                 ].join(" ")}
               >
                 {!allRevealed
-                  ? "🔦 เปิดข้อมูลถัดไป 🔒"
+                  ? "แตะบรรทัดที่ล็อกเพื่อเปิดข้อมูล"
                   : page === "lesson"
                   ? "✅ CASE CLOSED / เคสต่อไป"
                   : "เปิดหน้าถัดไป ▶"}
@@ -1324,7 +1343,7 @@ setLastUnlockMode(null);
 
       {stageFeedback && (
   <div className="pointer-events-none fixed inset-0 z-[99998] grid place-items-center px-4">
-    <div className="animate-bounce rounded-[28px] border-4 border-yellow-300 bg-black px-5 py-4 text-center font-black text-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.75)] text-[clamp(24px,7vw,38px)]">
+    <div className="animate-bounce rounded-[28px] border-4 border-yellow-300 bg-black px-5 py-4 text-center font-game font-black text-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.75)] text-[clamp(24px,7vw,38px)]">
       {stageFeedback}
     </div>
   </div>
@@ -1342,4 +1361,45 @@ function getPageTitle(page: CasePage) {
   if (page === "prevention") return "🛡 PREVENTION";
   if (page === "lesson") return "🏆 LESSON LEARNED";
   return "🔒 CASE LOCKED";
+}
+function getPageStory(page: CasePage) {
+  if (page === "report") {
+    return {
+      title: "⚠️ เกิดอะไรขึ้น",
+      body: "มาดูเหตุการณ์ที่เกิดขึ้นจริงจากหน้างาน",
+    };
+  }
+
+  if (page === "evidence") {
+    return {
+      title: "🔎 ทีมตรวจพบอะไร",
+      body: "ข้อมูลใดบ้างที่ช่วยอธิบายเหตุการณ์นี้",
+    };
+  }
+
+  if (page === "rootCause") {
+    return {
+      title: "❓ ทำไมถึงเกิดเหตุการณ์นี้",
+      body: "ลองหาสาเหตุที่ทำให้ความเสี่ยงนี้เกิดขึ้น",
+    };
+  }
+
+  if (page === "prevention") {
+    return {
+      title: "ถ้าคุณอยู่หน้างาน",
+      body: "คุณควรทำอะไรทันทีเมื่อพบเหตุการณ์ลักษณะนี้",
+    };
+  }
+
+  if (page === "lesson") {
+    return {
+      title: "🎯 สิ่งที่ต้องจำ",
+      body: "สรุปสิ่งสำคัญที่ควรนำไปใช้ในการทำงานจริง",
+    };
+  }
+
+  return {
+    title: "🔒 เริ่มการตรวจสอบเหตุการณ์",
+    body: "ปลดล็อกข้อมูลเพื่อดูว่าอุบัติเหตุนี้เกิดขึ้นได้อย่างไร",
+  };
 }
