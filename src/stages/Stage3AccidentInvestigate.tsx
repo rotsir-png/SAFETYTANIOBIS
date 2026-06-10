@@ -361,6 +361,7 @@ const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
 const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
 const [falseInsertionItems, setFalseInsertionItems] = useState<FalseInsertionItem[]>([]);
 const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
+const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -620,6 +621,7 @@ const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
     setRebuildPieces([]);
     setRebuildCorrectOrder([]);
     setDraggingPieceId(null);
+    setSelectedPieceId(null);
   
     setFalseInsertionItems([]);
   
@@ -714,15 +716,7 @@ setLastUnlockMode(selectedMode);
   
     showStageFeedback("✅ RECOVERED +25");
   
-    setUnlockMode(null);
-    setRecoverAnswer("");
-    setRecoverMaskedAnswer("");
-    setRecoverBeforeText("");
-    setRecoverAfterText("");
-    setRecoverMissingLetters([]);
-    setRecoverChoices([]);
-    setRecoverSelected([]);
-    setRecoverError("");
+    resetUnlockState();
   
     completeUnlock();
   };
@@ -739,11 +733,7 @@ setLastUnlockMode(selectedMode);
   
     showStageFeedback("✅ FILE RESTORED +25");
   
-    setUnlockMode(null);
-    setRebuildPieces([]);
-    setRebuildCorrectOrder([]);
-    setDraggingPieceId(null);
-    setRecoverError("");
+    resetUnlockState();
   
     completeUnlock();
   };
@@ -767,6 +757,37 @@ setLastUnlockMode(selectedMode);
   
     setRecoverError("");
   };
+  const tapSwapRebuildPiece = (targetId: string) => {
+    const targetPiece = rebuildPieces.find((piece) => piece.id === targetId);
+    if (!targetPiece || targetPiece.locked) return;
+  
+    if (!selectedPieceId) {
+      setSelectedPieceId(targetId);
+      setRecoverError("");
+      return;
+    }
+  
+    if (selectedPieceId === targetId) {
+      setSelectedPieceId(null);
+      return;
+    }
+  
+    setRebuildPieces((pieces) => {
+      const fromIndex = pieces.findIndex((p) => p.id === selectedPieceId);
+      const toIndex = pieces.findIndex((p) => p.id === targetId);
+  
+      if (fromIndex < 0 || toIndex < 0) return pieces;
+      if (pieces[fromIndex].locked || pieces[toIndex].locked) return pieces;
+  
+      const next = [...pieces];
+      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
+  
+      return next;
+    });
+  
+    setSelectedPieceId(null);
+    setRecoverError("");
+  };
   const selectFalseInsertionItem = (item: FalseInsertionItem) => {
     if (paused || unlockMode !== "falseInsertion") return;
   
@@ -784,10 +805,9 @@ setLastUnlockMode(selectedMode);
   
     showStageFeedback("✅ CHECKED +25");
 
-setUnlockMode(null);
-setFalseInsertionItems([]);
+    resetUnlockState();
 
-completeUnlock();
+    completeUnlock();
   };
   const nextPage = () => {
     if (paused) return;
@@ -1225,13 +1245,16 @@ setLastUnlockMode(null);
       swapRebuildPieces(piece.id);
     }}
     onDragEnd={() => setDraggingPieceId(null)}
+    onClick={() => tapSwapRebuildPiece(piece.id)}
     className={[
       "rounded-2xl px-4 py-3 font-black shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]",
       piece.locked
         ? "border-2 border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(103,232,249,0.45)]"
         : draggingPieceId === piece.id
-        ? "bg-purple-300 text-slate-950 opacity-60"
-        : "bg-yellow-300 text-slate-950",
+? "bg-purple-300 text-slate-950 opacity-60"
+: selectedPieceId === piece.id
+? "bg-orange-300 text-slate-950 ring-4 ring-orange-100 scale-[1.03]"
+: "bg-yellow-300 text-slate-950",
     ].join(" ")}
   >
     {piece.locked ? "💡 " : ""}
