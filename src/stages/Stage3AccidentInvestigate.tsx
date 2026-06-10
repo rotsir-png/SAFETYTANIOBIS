@@ -356,12 +356,12 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverMissingLetters, setRecoverMissingLetters] = useState<string[]>([]);
   const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
   const [recoverSelected, setRecoverSelected] = useState<RecoverToken[]>([]);
-const [recoverError, setRecoverError] = useState("");
-const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
-const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
-const [falseInsertionItems, setFalseInsertionItems] = useState<FalseInsertionItem[]>([]);
-const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
-const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
+  const [recoverError, setRecoverError] = useState("");
+  const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
+  const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
+  const [falseInsertionItems, setFalseInsertionItems] = useState<FalseInsertionItem[]>([]);
+  const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
+  const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -792,6 +792,8 @@ setLastUnlockMode(selectedMode);
     if (paused || unlockMode !== "falseInsertion") return;
   
     if (!item.fake) {
+      setScore((s) => Math.max(0, s - 5));
+      showStageFeedback("⚠️ REAL DATA -5");
       setRecoverError("❌ อันนี้เป็นข้อมูลจริงของเคส");
       return;
     }
@@ -1245,7 +1247,10 @@ setLastUnlockMode(null);
       swapRebuildPieces(piece.id);
     }}
     onDragEnd={() => setDraggingPieceId(null)}
-    onClick={() => tapSwapRebuildPiece(piece.id)}
+    onClick={() => {
+      if (draggingPieceId) return;
+      tapSwapRebuildPiece(piece.id);
+    }}
     className={[
       "rounded-2xl px-4 py-3 font-black shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]",
       piece.locked
