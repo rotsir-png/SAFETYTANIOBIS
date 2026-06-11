@@ -16,16 +16,7 @@ import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
 type AppScreen = Screen | 'edit_profile';
-const STAGE_UNLOCK_DATES: Record<number, string> = {
-  2: '2026-06-08T08:00:00+07:00',
-  3: '2026-06-11T08:00:00+07:00',
-};
-const isStageOpenByDate = (stage: number) => {
-  const unlockDate = STAGE_UNLOCK_DATES[stage];
-  if (!unlockDate) return true;
-
-  return new Date() >= new Date(unlockDate);
-};
+const isStageOpenByDate = () => true;
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [lineIdentity, setLineIdentity] = useState<LineIdentity | null>(null);
@@ -189,11 +180,6 @@ if (p) {
   
     if (typeof result?.stage === 'number') {
       // TEMP LOCK: กันกดเอาใหม่แล้วกลับเข้า Stage 2/3
-      if (result.stage === 2 || result.stage === 3) {
-        refreshProgress();
-        setScreen('campaign');
-        return;
-      }
   
       setScreen(`stage${result.stage}` as Screen);
     }
@@ -204,11 +190,6 @@ if (p) {
       const next = result.stage + 1;
   
       // TEMP LOCK: Stage 2 และ Stage 3 ยังไม่เปิด
-      if (next === 2 || next === 3) {
-        refreshProgress();
-        setScreen('campaign');
-        return;
-      }
   
       setCurrentStage(next);
       setScreen(`stage${next}` as Screen);

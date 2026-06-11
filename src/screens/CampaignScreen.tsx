@@ -58,8 +58,8 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 // if (id === 3) return false;
 
 // ===== OPEN ALL =====
-if (id === 2) return progress.passedStages.includes(1);
-if (id === 3) return progress.passedStages.includes(2);
+if (id === 2) return true;
+if (id === 3) return true;
   
     return false;
   };
