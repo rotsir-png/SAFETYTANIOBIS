@@ -762,7 +762,7 @@ const reportDetailsReady =
               </div>
             </div>
           ) : (
-            <div className="arcade-panel mt-2 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-3">
+            <div className="arcade-panel mt-2 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-3 overflow-hidden">
               <div
   className={
     page === "report"
@@ -805,9 +805,9 @@ const reportDetailsReady =
 </div>
 
               {unlockMode === "letterFill" && (
- <div className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden text-center">
+ <div className="mt-2 flex min-h-0 flex-1 flex-col text-center">
 
-<div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-950 p-1">
+<div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-950 p-1 pb-24">
 
 <div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-snug text-white text-[clamp(20px,5vw,26px)]">
 <div
@@ -854,7 +854,7 @@ const reportDetailsReady =
   )}
 </div>
 
-<div className="mt-1 flex max-h-[18dvh] flex-wrap items-center justify-center gap-1.5 overflow-y-auto px-1">
+<div className="mt-1 flex max-h-[22dvh] flex-wrap items-center justify-center gap-1.5 overflow-y-auto px-1 pb-2">
       {recoverChoices.map((token) => (
           <button
             key={token.id}
