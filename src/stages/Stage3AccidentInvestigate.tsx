@@ -9,6 +9,7 @@ import {
 type Props = {
   onExit?: () => void;
   onClear?: (score: number) => void;
+  onFail?: () => void;
 };
 
 type CasePage =
@@ -82,7 +83,7 @@ function getUnlockButtonText(page: CasePage) {
   if (page === "prevention") return "มาตรการป้องกันเบื้องต้น";
   return "เปิดข้อมูล";
 }
-export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
+export default function Stage3AccidentInvestigate({ onExit, onClear, onFail }: Props) {
   const { paused, togglePause, PauseOverlay } = usePause({
     onGiveUp: () => {
       onExit?.();
@@ -305,7 +306,7 @@ setPhaseFilledWords([]);
       window.setTimeout(() => setScreenShake(false), 260);
   
       if (nextHp <= 0) {
-        onClear?.(0);
+        onFail?.();
       }
   
       return nextHp;
@@ -388,7 +389,7 @@ showStageFeedback("✅ ถูกต้อง");
     setCaseClosed(false);
   
     if (runCaseIndex >= runCaseIds.length - 1) {
-      onClear?.(0);
+      onClear?.(runCaseIds.length);
       return;
     }
   
@@ -407,10 +408,10 @@ const reportDetailsReady =
   const fillIndexRef = { current: 0 };
   return (
     <div
-  className={[
-    "h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white",
-    screenShake ? "screen-shake" : "",
-  ].join(" ")}
+    className={[
+      "h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white",
+      screenShake ? "screen-shake" : "",
+    ].join(" ")}
 >
 {flashType && (
   <div
@@ -433,9 +434,24 @@ const reportDetailsReady =
   </div>
 
   <div className="flex shrink-0 items-center gap-2">
-    <PauseButton paused={paused} onToggle={togglePause} />
+  <PauseButton paused={paused} onToggle={togglePause} />
 
-    <div className="text-right">
+  <button
+    onClick={() => onClear?.(5)}
+    className="rounded-lg bg-lime-400 px-2 py-1 font-black text-black text-xs"
+  >
+    CLEAR
+  </button>
+
+  <button
+    onClick={() => onFail?.()}
+    className="rounded-lg bg-red-500 px-2 py-1 font-black text-white text-xs"
+  >
+    FAIL
+  </button>
+
+  <div className="text-right">
+      
   <div className="font-game font-black text-yellow-300 text-[clamp(22px,6vw,30px)]">
     {runCaseIndex + 1}/{runCaseIds.length}
   </div>
@@ -475,9 +491,6 @@ const reportDetailsReady =
 </div>
 
 <div className="arcade-card mt-2 rounded-2xl px-3 py-2">
-  <div className="mb-1 text-center font-game font-black text-white/55 text-[clamp(10px,2.8vw,12px)]">
-    ตอนนี้อยู่ขั้นตอน
-  </div>
 
   <div className="flex flex-wrap justify-center gap-1.5">
     {getInvestigationSteps().map((step) => {
@@ -659,7 +672,7 @@ const reportDetailsReady =
               </div>
             </div>
           ) : (
-            <div className="arcade-panel mt-1 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-2 overflow-hidden">
+            <div className="arcade-panel mt-1 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-2 overflow-y-auto">
               <div
   className={
     page === "report"
@@ -812,6 +825,7 @@ style={{
             </div>
           )}
         </div>
+        
         {caseClosed && (
   <div className="fixed inset-0 z-[99998] overflow-y-auto bg-black/80 px-3 py-4">
   <div className="mx-auto w-full max-w-[410px] rounded-[30px] border-4 border-yellow-300 bg-slate-950 p-4 text-center shadow-[0_0_42px_rgba(250,204,21,0.65)]">

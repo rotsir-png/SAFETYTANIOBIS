@@ -12,7 +12,7 @@ interface Props {
 const STAGE_PASS_TEXT: Record<number, string> = {
   1: 'Stage 1 ผ่าน',
   2: 'Stage 2 ผ่าน',
-  3: 'Stage 3 ผ่าน',
+  3: 'ปิดเคสครบ 5/5',
   4: 'ด่าน 4 ผ่าน',
   5: 'Hazard is Coming ผ่าน',
   6: 'Machine Sync ผ่าน',
@@ -28,8 +28,8 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
   const loseSfx = useRef(new Audio('/sfx/lose.wav'));
 
   const isEndless = result.stage === 'endless';
+  const isStage3 = result.stage === 3;
   const isStage7 = result.stage === 7;
-
   const STAGE_PASS_SCORE: Record<number, number> = {
     1: 300,
     2: 400,
@@ -133,41 +133,51 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
         className="relative z-10 text-center"
         style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.5s ease 0.25s' }}
       >
-        {isStage7 ? (
-          <div className="font-game text-white text-6xl mt-4" style={{ textShadow: '3px 3px 0 rgba(0,0,0,0.3)' }}>
-            {passed ? 'รอดแล้ว 20 วิ สุดยอดเว่อ!' : 'ไม่รอด ไม่เหลือ!'}
-          </div>
-        ) : (
-          <>
-            <div
-              className="font-game text-white font-bold"
-              style={{
-                fontSize: 'clamp(2.5rem, 14vw, 5rem)',
-                textShadow: '4px 4px 0 rgba(0,0,0,0.3)',
-              }}
-            >
-              {scoreDisplay}
-            </div>
+        {isStage3 ? (
+  <>
+    <div
+      className="font-game text-white font-bold"
+      style={{
+        fontSize: 'clamp(2.5rem, 14vw, 5rem)',
+        textShadow: '4px 4px 0 rgba(0,0,0,0.3)',
+      }}
+    >
+      {passed ? '5/5' : 'ปิดเคสไม่ครบ'}
+    </div>
 
-            <div className="font-game text-white/70 text-xl">คะแนน</div>
-          </>
-        )}
+    <div className="font-game text-white/70 text-xl">
+    {passed ? 'เคส' : 'ลองใหม่อีกครั้ง'}
+    </div>
+  </>
+) : isStage7 ? (
+  <div className="font-game text-white text-6xl mt-4" style={{ textShadow: '3px 3px 0 rgba(0,0,0,0.3)' }}>
+    {passed ? 'รอดแล้ว 20 วิ สุดยอดเว่อ!' : 'ไม่รอด ไม่เหลือ!'}
+  </div>
+) : (
+  <>
+    <div
+      className="font-game text-white font-bold"
+      style={{
+        fontSize: 'clamp(2.5rem, 14vw, 5rem)',
+        textShadow: '4px 4px 0 rgba(0,0,0,0.3)',
+      }}
+    >
+      {scoreDisplay}
+    </div>
 
-        {isEndless && result.highScore !== undefined && (
-          <div className="font-game text-yellow-200/80 text-base mt-2">
-            สูงสุด: {result.highScore} คะแนน
-          </div>
-        )}
+    <div className="font-game text-white/70 text-xl">คะแนน</div>
+  </>
+)}
       </div>
 
-      <div
-        className="relative z-10 w-full max-w-xs flex flex-col gap-3"
-        style={{
-          opacity: visible ? 1 : 0,
-          transform: visible ? 'translateY(0)' : 'translateY(30px)',
-          transition: 'all 0.5s ease 0.4s',
-        }}
-      >
+<div
+  className="relative z-10 w-full max-w-xs flex flex-col gap-3"
+  style={{
+    opacity: visible ? 1 : 0,
+    transform: visible ? 'translateY(0)' : 'translateY(30px)',
+    transition: 'all 0.5s ease 0.4s',
+  }}
+>
         {passed && !isEndless && typeof result.stage === 'number' && result.stage < 8 && (
           <button
             onClick={onNext}

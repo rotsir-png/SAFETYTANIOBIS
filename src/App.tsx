@@ -130,7 +130,7 @@ useEffect(() => {
     const passScore =
   stage === 1 ? 300 :
   stage === 2 ? 400 :
-  stage === 3 ? 500 :
+  stage === 3 ? 5 :
   0;
   
   const passed = score >= passScore;
@@ -366,10 +366,20 @@ if (p) {
 
 {screen === 'stage3' && (
   <Stage3AccidentInvestigate
-    key={`s3-${currentStage}`}
-    onExit={() => setScreen('campaign')}
-    onClear={(score) => handleStageComplete(score, 3)}
-  />
+  key={`s3-${currentStage}`}
+  onExit={() => setScreen('campaign')}
+  onClear={(score) => handleStageComplete(score, 3)}
+  onFail={() => {
+    setResult({
+      score: 0,
+      stage: 3,
+      passed: false,
+      passScore: 5,
+    });
+    setCurrentStage(3);
+    setScreen('result');
+  }}
+/>
 )}
 
 
