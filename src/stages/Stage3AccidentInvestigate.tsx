@@ -611,7 +611,7 @@ const reportDetailsReady =
               </div>
 
               <p className="mt-2 font-bold leading-snug text-white/75 text-[clamp(14px,3.8vw,17px)]">
-              ลากบัตรขึ้นเสียบ Reader เพื่อเปิดแฟ้มคดี
+              ลากบัตรขึ้นเสียบ Card Reader เพื่อเปิดเคส
               </p>
 
               <div
