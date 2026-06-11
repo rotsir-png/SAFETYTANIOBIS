@@ -64,6 +64,14 @@ const STAGE3_STOP_WORDS = new Set([
   "ขณะ",
   "อยู่",
   "ทันที",
+  "พบ",
+  "มี",
+  "เป็น",
+  "กับ",
+  "ของ",
+  "ยัง",
+  "ได้",
+  "ต่อ",
 ]);
 
 export function getStage3PhaseLines(
@@ -72,17 +80,41 @@ export function getStage3PhaseLines(
 ): Stage3CaseLine[] {
   return stageCase[phaseKey];
 }
-
+function shuffle<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5);
+}
 export function pickStage3KeywordsFromLines(
   lines: Stage3CaseLine[],
   maxKeywords = 3
 ): string[] {
   const manualKeywords = lines
     .flatMap((line) => line.keywords ?? [])
+    .map((word) => word.trim())
     .filter(Boolean);
 
+  const removeOverlappingKeywords = (keywords: string[]) => {
+    const sorted = [...keywords].sort((a, b) => b.length - a.length);
+    const result: string[] = [];
+
+    sorted.forEach((word) => {
+      const isOverlapping = result.some(
+        (picked) => picked.includes(word) || word.includes(picked)
+      );
+
+      if (!isOverlapping) {
+        result.push(word);
+      }
+    });
+
+    return result;
+  };
+
   if (manualKeywords.length > 0) {
-    return manualKeywords.slice(0, maxKeywords);
+    const uniqueKeywords = removeOverlappingKeywords(
+      Array.from(new Set(manualKeywords))
+    );
+
+    return shuffle(uniqueKeywords).slice(0, maxKeywords);
   }
 
   const words =
@@ -91,18 +123,34 @@ export function pickStage3KeywordsFromLines(
       .join(" ")
       .match(/[ก-๙A-Za-z0-9/]+/g) ?? [];
 
-  return Array.from(new Set(words))
+  const candidates = Array.from(new Set(words))
+    .map((word) => word.trim())
+    .filter(Boolean)
     .filter((word) => word.length >= 3)
-    .filter((word) => !STAGE3_STOP_WORDS.has(word))
-    .sort((a, b) => b.length - a.length)
-    .slice(0, maxKeywords);
+    .filter((word) => !STAGE3_STOP_WORDS.has(word));
+
+  const uniqueCandidates = removeOverlappingKeywords(candidates);
+
+  return shuffle(uniqueCandidates).slice(0, maxKeywords);
 }
 
 export function buildStage3PhasePuzzle(
   lines: Stage3CaseLine[],
   maxKeywords = 3
 ): Stage3PhasePuzzle {
-  const keywords = pickStage3KeywordsFromLines(lines, maxKeywords);
+  const rawKeywords = pickStage3KeywordsFromLines(lines, maxKeywords);
+  const fullText = lines.map((line) => line.text).join(" ");
+
+  const keywords = [...rawKeywords].sort((a, b) => {
+    const indexA = fullText.indexOf(a);
+    const indexB = fullText.indexOf(b);
+
+    if (indexA === -1 && indexB === -1) return 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+
+    return indexA - indexB;
+  });
 
   const maskedLines = lines.map((line) => {
     let maskedText = line.text;

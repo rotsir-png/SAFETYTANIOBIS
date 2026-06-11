@@ -16,10 +16,9 @@ type CasePage =
   | "report"
   | "evidence"
   | "rootCause"
-  | "prevention"
-  | "lesson";
+  | "prevention";
 
-  type AccessPhase = "insert" | "granted";
+type AccessPhase = "insert" | "granted" | "miss";
 type UnlockMode = "letterFill";
 
 type RecoverToken = {
@@ -37,23 +36,42 @@ const pageOrder: CasePage[] = [
   "evidence",
   "rootCause",
   "prevention",
-  "lesson",
 ];
+const CASES_PER_STAGE3_RUN = 5;
+const STAGE3_MAX_HP = 5;
+const STAGE3_PLAYED_CASE_IDS_KEY = "tanio_stage3_played_case_ids";
 
-const CARD_WIDTH = 150;
-const CARD_HEIGHT = 92;
-const MIN_SWIPE_DISTANCE = 80;
-
-const PERFECT_DISTANCE_PX = 18;
-const GOOD_DISTANCE_PX = 42;
-
-const ACCESS_ZONE_WIDTH = 76;
-const CARD_START_X = 24;
-const TRACK_INSET_X = 16;
-
-function randomSwipeZone() {
-  return 0.18 + Math.random() * 0.64;
+function getPlayedCaseIds() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(STAGE3_PLAYED_CASE_IDS_KEY) ?? "[]"
+    ) as string[];
+  } catch {
+    return [];
+  }
 }
+
+function savePlayedCaseId(caseId: string) {
+  const played = getPlayedCaseIds();
+  const next = Array.from(new Set([...played, caseId]));
+  localStorage.setItem(STAGE3_PLAYED_CASE_IDS_KEY, JSON.stringify(next));
+}
+
+function pickRunCaseIds() {
+  const allIds = stage3Cases.map((item) => item.id);
+  let played = getPlayedCaseIds();
+
+  let available = allIds.filter((id) => !played.includes(id));
+
+  if (available.length < CASES_PER_STAGE3_RUN) {
+    localStorage.setItem(STAGE3_PLAYED_CASE_IDS_KEY, "[]");
+    available = allIds;
+  }
+
+  return shuffle(available).slice(0, CASES_PER_STAGE3_RUN);
+}
+
+const CARD_HEIGHT = 92;
 
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
@@ -62,34 +80,31 @@ function getUnlockButtonText(page: CasePage) {
   if (page === "evidence") return "เปิดหลักฐานที่ซ่อนอยู่";
   if (page === "rootCause") return "สาเหตุของเหตุการณ์ที่เกิดขึ้น";
   if (page === "prevention") return "มาตรการป้องกันเบื้องต้น";
-  if (page === "lesson") return "บทเรียน";
   return "เปิดข้อมูล";
 }
-export default function Stage3AccidentInvestigate({ onExit }: Props) {
+export default function Stage3AccidentInvestigate({ onExit, onClear }: Props) {
   const { paused, togglePause, PauseOverlay } = usePause({
     onGiveUp: () => {
       onExit?.();
     },
   });
 
-  const [caseIndex, setCaseIndex] = useState(0);
+  const [runCaseIds] = useState(() => pickRunCaseIds());
+const [runCaseIndex, setRunCaseIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedIndexes, setRevealedIndexes] = useState<number[]>([]);
   const [reportUnlocked, setReportUnlocked] = useState(false);
 const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
-  const [score, setScore] = useState(0);
   const [stageFeedback, setStageFeedback] = useState("");
+  const [caseClosed, setCaseClosed] = useState(false);
+  const [stageHp, setStageHp] = useState(STAGE3_MAX_HP);
+const [hpHit, setHpHit] = useState(false);
 
   const [accessPhase, setAccessPhase] = useState<AccessPhase>("insert");
-  const [cardY, setCardY] = useState(0);
-  const [cardX, setCardX] = useState(0);
-  const [maxCardX, setMaxCardX] = useState(1);
-  const [isDraggingCard, setIsDraggingCard] = useState(false);
-  const [swipeZone, setSwipeZone] = useState(() => randomSwipeZone());
-  const [zoneLeftPx, setZoneLeftPx] = useState(0);
-  const [accessResult, setAccessResult] = useState<"perfect" | "good" | null>(null);
-  const [scanMessage, setScanMessage] = useState("ลากบัตรขึ้นไปเสียบ Reader");
-  const [inserted, setInserted] = useState(false);
+const [cardY, setCardY] = useState(0);
+const [isDraggingCard, setIsDraggingCard] = useState(false);
+const [scanMessage, setScanMessage] = useState("ลากบัตรขึ้นไปเสียบ Reader");
+const [inserted, setInserted] = useState(false);
 
   const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverMissingLetters, setRecoverMissingLetters] = useState<string[]>([]);
@@ -101,79 +116,16 @@ const [wrongShake, setWrongShake] = useState(false);
 const [recoverError, setRecoverError] = useState("");
 const [screenShake, setScreenShake] = useState(false);
 const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
+const touchAreaRef = useRef<HTMLDivElement | null>(null);
 
-  const zoneOffsetRef = useRef(0);
-  const zoneCenterPxRef = useRef(0);
-  const cardXRef = useRef(0);
+const dragStartRef = useRef({
+  pointerY: 0,
+  startCardY: 0,
+});
 
-  const touchAreaRef = useRef<HTMLDivElement | null>(null);
-  const swipeTrackRef = useRef<HTMLDivElement | null>(null);
-
-  const dragStartRef = useRef({
-    pointerY: 0,
-    startCardY: 0,
-  });
-
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
-
-  const updateZonePosition = (activeZone: number) => {
-    const touchEl = touchAreaRef.current;
-    const trackEl = swipeTrackRef.current;
-    if (!touchEl || !trackEl) return;
-
-    const touchWidth = touchEl.getBoundingClientRect().width;
-    const trackWidth = trackEl.getBoundingClientRect().width;
-
-    const maxX = Math.max(1, touchWidth - CARD_WIDTH - 48);
-    const scanMinX = CARD_START_X + CARD_WIDTH * 0.5;
-    const scanMaxX = CARD_START_X + maxX + CARD_WIDTH * 0.5;
-
-    const clampedZone = Math.max(0, Math.min(1, activeZone));
-    const zoneCenterX = scanMinX + (scanMaxX - scanMinX) * clampedZone;
-
-    const nextLeft = Math.max(
-      4,
-      Math.min(
-        trackWidth - ACCESS_ZONE_WIDTH - 4,
-        zoneCenterX - TRACK_INSET_X - ACCESS_ZONE_WIDTH * 0.5
-      )
-    );
-
-    zoneCenterPxRef.current = nextLeft + TRACK_INSET_X + ACCESS_ZONE_WIDTH * 0.5;
-    setZoneLeftPx(nextLeft);
-  };
-
-  const getSwipeDistanceFromCardX = (nextCardX: number) => {
-    const scanCenterX = CARD_START_X + nextCardX + CARD_WIDTH * 0.5;
-    return Math.abs(scanCenterX - zoneCenterPxRef.current);
-  };
-
-  useEffect(() => {
-    if (accessPhase !== "swipe") {
-      zoneOffsetRef.current = 0;
-      zoneCenterPxRef.current = 0;
-      setZoneLeftPx(0);
-      return;
-    }
-
-    let frame = 0;
-
-    window.requestAnimationFrame(() => {
-      zoneOffsetRef.current = 0;
-      updateZonePosition(swipeZone);
-    });
-
-    const id = window.setInterval(() => {
-      frame += 1;
-      const nextOffset = Math.sin(frame * 0.08) * 0.03;
-      zoneOffsetRef.current = nextOffset;
-      updateZonePosition(swipeZone + nextOffset);
-    }, 30);
-
-    return () => window.clearInterval(id);
-  }, [accessPhase, swipeZone]);
-
-  const currentCase = stage3Cases[caseIndex % stage3Cases.length];
+  const currentCase =
+  stage3Cases.find((item) => item.id === runCaseIds[runCaseIndex]) ??
+  stage3Cases[0];
   const page = pageOrder[Math.min(pageIndex, pageOrder.length - 1)];
 
   const getLines = (): Stage3CaseLine[] => {
@@ -181,13 +133,12 @@ const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
     if (page === "evidence") return currentCase.evidence;
     if (page === "rootCause") return currentCase.rootCause;
     if (page === "prevention") return currentCase.prevention;
-    if (page === "lesson") return [currentCase.lesson];
     return [];
   };
 
   const lines = getLines();
   const allRevealed =
-  page === "locked" || page === "lesson" || revealedIndexes.length >= lines.length;
+  page === "locked" || revealedIndexes.length >= lines.length;
   useEffect(() => {
     if (page === "locked" || lines.length === 0) return;
   
@@ -201,45 +152,24 @@ const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
     }
     
     setRevealedIndexes([]);
-  }, [caseIndex, pageIndex]);
+  }, [runCaseIndex, pageIndex]);
   const resetAccessCard = () => {
-    zoneOffsetRef.current = 0;
-    zoneCenterPxRef.current = 0;
-    cardXRef.current = 0;
-
     setAccessPhase("insert");
     setCardY(0);
-    setCardX(0);
-    setMaxCardX(1);
     setIsDraggingCard(false);
     setInserted(false);
-    setSwipeZone(randomSwipeZone());
-    setZoneLeftPx(0);
-    setAccessResult(null);
     setScanMessage("ลากบัตรขึ้นไปเสียบ Reader");
   };
 
   const missAccess = (message: string) => {
-    setScore((s) => Math.max(0, s - 10));
     setAccessPhase("miss");
     setScanMessage(message);
-
+  
+    takeStageDamage();
+  
     window.setTimeout(() => {
       resetAccessCard();
     }, 850);
-  };
-
-  const grantAccess = (perfect: boolean) => {
-    setAccessResult(perfect ? "perfect" : "good");
-    setAccessPhase("granted");
-    setScanMessage(perfect ? "🎯 PERFECT ACCESS" : "✅ ACCESS GRANTED");
-    setScore((s) => s + (perfect ? 100 : 75));
-
-    window.setTimeout(() => {
-      setPageIndex(1);
-      setAccessResult(null);
-      resetAccessCard();
-    }, 900);
   };
 
   const handleInsertMove = (clientY: number) => {
@@ -271,67 +201,6 @@ const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
       }, 250);
     }
   };
-
-  const handleSwipeMove = (
-    clientX: number,
-    trackLeft: number,
-    trackWidth: number
-  ) => {
-    if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
-
-    const maxX = Math.max(1, trackWidth - CARD_WIDTH - 48);
-    const nextX = Math.max(
-      0,
-      Math.min(maxX, clientX - trackLeft - dragOffsetRef.current.x - 24)
-    );
-
-    setMaxCardX(maxX);
-    setCardX(nextX);
-    cardXRef.current = nextX;
-
-    updateZonePosition(swipeZone + zoneOffsetRef.current);
-
-    const distance = getSwipeDistanceFromCardX(nextX);
-
-    if (nextX < MIN_SWIPE_DISTANCE) {
-      setScanMessage("➡️ รูดต่ออีกนิด ให้ผ่าน Reader ก่อน");
-    } else if (distance <= PERFECT_DISTANCE_PX) {
-      setScanMessage("🎯 PERFECT! ปล่อยนิ้วเลย!");
-    } else if (distance <= GOOD_DISTANCE_PX) {
-      setScanMessage("✅ ACCESS ได้แล้ว ปล่อยนิ้วได้");
-    } else {
-      setScanMessage("➡️ รูดให้เส้นแดงเข้า ACCESS ZONE");
-    }
-  };
-
-  const handleSwipeEnd = () => {
-    if (paused || accessPhase !== "swipe" || !isDraggingCard) return;
-
-    setIsDraggingCard(false);
-
-    const finalCardX = cardXRef.current;
-
-    if (finalCardX < MIN_SWIPE_DISTANCE) {
-      missAccess("❌ รูดสั้นไป! ต้องรูดผ่าน Reader ให้สุดกว่านี้");
-      return;
-    }
-
-    updateZonePosition(swipeZone + zoneOffsetRef.current);
-
-    const distance = getSwipeDistanceFromCardX(finalCardX);
-
-    if (distance <= PERFECT_DISTANCE_PX) {
-      grantAccess(true);
-      return;
-    }
-
-    if (distance <= GOOD_DISTANCE_PX) {
-      grantAccess(false);
-      return;
-    }
-
-    missAccess("❌ MISS -10 เส้นแดงยังไม่ตรง ACCESS ZONE");
-  };
   const showStageFeedback = (message: string) => {
     setStageFeedback(message);
   
@@ -340,7 +209,6 @@ const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
     }, 650);
   };
   const completeUnlock = () => {
-    setScore((s) => s + 25);
   
     if (pendingLineIndex === null) return;
   
@@ -382,7 +250,7 @@ setPhaseFilledWords([]);
     setRecoverMissingLetters(puzzle.keywords);
     setRecoverChoices(
       shuffle(puzzle.keywords).map((text, index) => ({
-        id: `${text}-${index}-${Math.random()}`,
+        id: `${text}-${index}`,
         text,
       }))
     );
@@ -426,30 +294,58 @@ setPhaseFilledWords([]);
       }, 320);
     });
   };
+  const takeStageDamage = () => {
+    setStageHp((hp) => {
+      const nextHp = Math.max(0, hp - 1);
+  
+      setHpHit(true);
+      setScreenShake(true);
+  
+      window.setTimeout(() => setHpHit(false), 300);
+      window.setTimeout(() => setScreenShake(false), 260);
+  
+      if (nextHp <= 0) {
+        onClear?.(0);
+      }
+  
+      return nextHp;
+    });
+  };
   const submitRecoverPuzzle = () => {
-    if (paused || unlockMode !== "letterFill" || !phasePuzzle) return;
+    if (paused || stageHp <= 0 || unlockMode !== "letterFill" || !phasePuzzle) return;
   
     if (phaseFilledWords.length < phasePuzzle.keywords.length) {
       setRecoverError("❌ เติมคำให้ครบก่อน");
       return;
     }
   
-    const isCorrectOrder =
-      phaseFilledWords.join("|") === phasePuzzle.keywords.join("|");
+    const normalizeAnswer = (text: string) =>
+  text.replace(/[【】()[\]\s]/g, "").trim();
+
+const answerWordsInMaskedOrder = phasePuzzle.keywords;
+
+const isCorrectOrder =
+  phaseFilledWords.map(normalizeAnswer).join("|") ===
+  answerWordsInMaskedOrder.map(normalizeAnswer).join("|");
   
     if (!isCorrectOrder) {
       setRecoverError("❌ คำยังไม่ตรงช่อง ลองเรียงใหม่อีกครั้ง");
       triggerWrongShake();
       setFlashType("wrong");
       setScreenShake(true);
+      takeStageDamage();
       
       window.setTimeout(() => setFlashType(null), 180);
       window.setTimeout(() => setScreenShake(false), 260);
-      const selectedBack = [...recoverSelected];
-  
+      // ตอบผิด: คงชุดคำเดิมไว้ ไม่สุ่มใหม่
       setRecoverSelected([]);
       setPhaseFilledWords([]);
-      setRecoverChoices((choices) => shuffle([...choices, ...selectedBack]));
+      setRecoverChoices(
+        phasePuzzle.keywords.map((text, index) => ({
+          id: `${text}-${index}`,
+          text,
+        }))
+      );
   
       return;
     }
@@ -457,7 +353,7 @@ setPhaseFilledWords([]);
     setFlashType("correct");
 window.setTimeout(() => setFlashType(null), 180);
 
-showStageFeedback("✅+25");
+showStageFeedback("✅ ถูกต้อง");
   
     resetUnlockState();
     completeUnlock();
@@ -480,25 +376,35 @@ showStageFeedback("✅+25");
       return;
     }
   
-    if (page === "lesson" || pageIndex >= pageOrder.length - 1) {
-      setCaseIndex((v) => v + 1);
-      setPageIndex(0);
-      setRevealedIndexes([]);
-      setReportUnlocked(false);
-      resetAccessCard();
+    if (pageIndex >= pageOrder.length - 1) {
+      savePlayedCaseId(currentCase.id);
+      setCaseClosed(true);
       return;
     }
   
     setPageIndex((v) => v + 1);
   };
-
-  const isSwipeMode = false;
+  const goNextCase = () => {
+    setCaseClosed(false);
+  
+    if (runCaseIndex >= runCaseIds.length - 1) {
+      onClear?.(0);
+      return;
+    }
+  
+    setRunCaseIndex((v) => v + 1);
+    setPageIndex(0);
+    setRevealedIndexes([]);
+    setReportUnlocked(false);
+  
+    resetAccessCard();
+  };
   const revealedTextList = lines.filter((_, index) =>
   revealedIndexes.includes(index)
 );
 const reportDetailsReady =
   page === "report" ? allRevealed && !unlockMode : reportUnlocked;
-  let globalFillIndex = 0;
+  const fillIndexRef = { current: 0 };
   return (
     <div
   className={[
@@ -530,13 +436,41 @@ const reportDetailsReady =
     <PauseButton paused={paused} onToggle={togglePause} />
 
     <div className="text-right">
-      <div className="font-game font-black text-yellow-300 text-[clamp(22px,6vw,30px)]">
-        {score}
+  <div className="font-game font-black text-yellow-300 text-[clamp(22px,6vw,30px)]">
+    {runCaseIndex + 1}/{runCaseIds.length}
+  </div>
+  <div className="font-game font-bold text-white/45 text-[clamp(10px,3vw,12px)]">
+    เคส
+  </div>
+</div>
+  </div>
+  </div>
+
+<div className="mt-2 flex items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2">
+  <span className="font-game font-black text-red-300 text-[clamp(12px,3.2vw,15px)]">
+    HP
+  </span>
+
+  <div className="flex gap-1.5">
+    {Array.from({ length: STAGE3_MAX_HP }, (_, i) => (
+      <div
+        key={i}
+        className={[
+          "grid h-6 w-6 place-items-center rounded-full text-[15px] transition-all duration-200",
+          i < stageHp
+            ? hpHit
+              ? "bg-green-500 shadow-[0_0_14px_rgba(248,113,113,0.9)]"
+              : "bg-green-400 shadow-[0_0_10px_rgba(248,113,113,0.55)]"
+            : "bg-white/10 opacity-40",
+        ].join(" ")}
+      >
+        
       </div>
-      <div className="font-game font-bold text-white/45 text-[clamp(10px,3vw,12px)]">
-        คะแนน
-      </div>
-    </div>
+    ))}
+  </div>
+
+  <div className="ml-auto font-game font-black text-white/55 text-[clamp(11px,3vw,13px)]">
+    {stageHp}/{STAGE3_MAX_HP}
   </div>
 </div>
 
@@ -619,7 +553,6 @@ const reportDetailsReady =
                 ref={touchAreaRef}
                 className="relative mt-3 h-[330px] overflow-hidden rounded-[28px] border border-white/10 bg-black/45 p-3 touch-none select-none"
                 onPointerMove={(e) => {
-                  const rect = e.currentTarget.getBoundingClientRect();
 
                   if (accessPhase === "insert") {
                     handleInsertMove(e.clientY);
@@ -631,7 +564,7 @@ const reportDetailsReady =
 
                   if (accessPhase === "insert" && isDraggingCard) {
                     setIsDraggingCard(false);
-                    missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
+                    missAccess("❌ MISS เสียบบัตรไม่ถึง Reader");
                     return;
                   }
                 }}
@@ -640,7 +573,7 @@ const reportDetailsReady =
 
                   if (accessPhase === "insert" && isDraggingCard) {
                     setIsDraggingCard(false);
-                    missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
+                    missAccess("❌ MISS เสียบบัตรไม่ถึง Reader");
                     return;
                   }
                 }}
@@ -651,43 +584,9 @@ const reportDetailsReady =
                   </div>
                   <div className="mx-auto mt-2 h-5 w-44 rounded-full bg-green-300 shadow-[0_0_20px_rgba(134,239,172,0.75)]" />
                   <div className="mt-1 font-black text-white/55 text-[clamp(11px,3vw,13px)]">
-                    {accessPhase === "insert"
-                      ? "INSERT CARD FIRST"
-                      : "SWIPE TO UNLOCK"}
+                  {accessPhase === "insert" ? "INSERT CARD FIRST" : "ACCESS GRANTED"}
                   </div>
                 </div>
-
-                {isSwipeMode && (
-                  <div
-                    ref={swipeTrackRef}
-                    className="absolute left-4 right-4 top-[128px] h-[72px] rounded-[22px] border border-white/15 bg-slate-950/90"
-                  >
-                    <div className="absolute left-4 right-4 top-1/2 h-5 -translate-y-1/2 rounded-full bg-white/15" />
-
-                    <div
-                      className={[
-                        "absolute top-1/2 h-16 w-[76px] -translate-y-1/2 rounded-2xl border shadow-[0_0_22px_rgba(134,239,172,0.5)]",
-                        accessResult === "perfect"
-                          ? "border-yellow-200 bg-yellow-300/45"
-                          : accessResult === "good"
-                          ? "border-green-200 bg-green-400/45"
-                          : "border-green-300/70 bg-green-500/35",
-                      ].join(" ")}
-                      style={{ left: `${zoneLeftPx}px` }}
-                    >
-                      <div className="grid h-full place-items-center text-center">
-                        <div>
-                          <div className="font-black text-[12px]">ACCESS</div>
-                          <div className="font-black text-[12px]">ZONE</div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="absolute left-3 top-1 font-black text-green-300 text-[12px]">
-                      ⬅️ รูดบัตร ➡️
-                    </div>
-                  </div>
-                )}
 
                 <div
                   onPointerDown={(e) => {
@@ -708,14 +607,11 @@ const reportDetailsReady =
                     }
                   }}
                   style={{
-                    width: isSwipeMode ? CARD_WIDTH : undefined,
                     height: CARD_HEIGHT,
-                    left: isSwipeMode ? CARD_START_X : 32,
-                    right: isSwipeMode ? "auto" : 32,
-                    top: isSwipeMode ? 146 : 210,
-                    transform: isSwipeMode
-                      ? `translateX(${cardX}px)`
-                      : inserted
+                    left: 32,
+                    right: 32,
+                    top: 210,
+                    transform: inserted
                       ? `translateY(-112px) scale(0.92)`
                       : `translateY(${cardY}px)`,
                     transition: inserted ? "transform 180ms ease-out" : undefined,
@@ -767,8 +663,6 @@ const reportDetailsReady =
               <div
   className={
     page === "report"
-      ? "px-1 py-0 text-left"
-      : page === "lesson"
       ? "px-1 py-1 text-left"
       : unlockMode
       ? "px-1 py-1 text-left"
@@ -793,7 +687,7 @@ const reportDetailsReady =
   </div>
 )}
 
-{revealedTextList.length > 0 && !unlockMode && page !== "report" && page !== "lesson" && (
+{revealedTextList.length > 0 && !unlockMode && page !== "report" && (
   <div className="mt-2 rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(16px,4.3vw,20px)]">
     {revealedTextList.map((line, index) => (
       <div key={`${line.text}-${index}`} className={index > 0 ? "mt-1.5" : ""}>
@@ -806,11 +700,11 @@ const reportDetailsReady =
 </div>
 
               {unlockMode === "letterFill" && (
- <div className="mt-2 flex min-h-0 flex-1 flex-col text-center">
+ <div className="mt-0 flex min-h-0 flex-1 flex-col text-center">
 
-<div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-950 p-1 pb-24">
+<div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-950 p-0.5 pb-20">
 
-<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-snug text-white text-[clamp(18px,4.5vw,23px)]">
+<div className="max-h-[28dvh] space-y-1 overflow-y-auto rounded-xl bg-white/10 px-2 py-2 font-black leading-snug text-white text-[clamp(18px,4.5vw,23px)]">
 <div
   className={[
     "rounded-xl bg-black/25 px-3 py-3 text-left leading-snug",
@@ -819,8 +713,8 @@ const reportDetailsReady =
 >
 {phasePuzzle?.maskedLines?.map((line, lineIndex) => {
     const displayLine = line.replace(/____/g, () => {
-      const word = phaseFilledWords[globalFillIndex];
-      globalFillIndex += 1;
+      const word = phaseFilledWords[fillIndexRef.current];
+fillIndexRef.current += 1;
 
       return word ? `【${word}】` : "____";
     });
@@ -885,7 +779,7 @@ style={{
   </div>
 )}
 
-<div className={unlockMode || page === "lesson" ? "hidden" : "mt-4 space-y-3"}>
+<div className={unlockMode ? "hidden" : "mt-4 space-y-3"}>
 {!allRevealed && !unlockMode && (
   <button
     onClick={() => startUnlockInfo(0)}
@@ -898,39 +792,82 @@ style={{
   </button>
 )}
               </div>
-              {page === "lesson" && !unlockMode && (
-  <div className="mt-2 rounded-2xl border-2 border-green-300 bg-green-500 px-4 py-4">
-    <div className="mb-3 text-center font-game font-black text-white text-[clamp(18px,5vw,24px)]">
-      จากเหตุการณ์นี้
-    </div>
-
-    <div className="font-game font-black leading-snug text-white text-[clamp(18px,4.8vw,24px)]">
-      {currentCase.lesson.text}
-    </div>
-  </div>
-)}
+              
               {allRevealed && !unlockMode && (
   <button
     onClick={nextPage}
     className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
   >
-    {page === "lesson"
-  ? "ปิดเคส / เคสต่อไป"
-  : page === "report"
+    {page === "report"
   ? "หาหลักฐานเพิ่มเติม"
   : page === "evidence"
   ? "วิเคราะห์สาเหตุ"
   : page === "rootCause"
   ? "ดูวิธีป้องกัน"
   : page === "prevention"
-  ? "สรุป"
+  ? "ปิดเคส / เคสต่อไป"
   : "เปิดหน้าถัดไป ▶"}
   </button>
 )}
             </div>
           )}
         </div>
+        {caseClosed && (
+  <div className="fixed inset-0 z-[99998] overflow-y-auto bg-black/80 px-3 py-4">
+  <div className="mx-auto w-full max-w-[410px] rounded-[30px] border-4 border-yellow-300 bg-slate-950 p-4 text-center shadow-[0_0_42px_rgba(250,204,21,0.65)]">
 
+      <div
+        className="font-game font-black text-yellow-300 text-[clamp(34px,9vw,50px)]"
+        style={{ textShadow: "0 4px 0 rgba(0,0,0,0.65)" }}
+      >
+        📋 สรุปเคส
+      </div>
+      <div className="mt-2 rounded-2xl border-2 border-yellow-300 bg-yellow-300 px-3 py-2 text-center">
+  <div className="font-game font-black text-slate-950 text-[clamp(18px,5vw,26px)]">
+    {currentCase.title}
+  </div>
+</div>
+
+      <div className="mt-3 rounded-2xl border-2 border-orange-300 bg-white px-3 py-3 text-left shadow-lg">
+        <div className="font-game font-black text-orange-600 text-[clamp(20px,5.5vw,28px)]">
+          ⚠️ สาเหตุ
+        </div>
+
+        <div className="mt-1 font-game font-black leading-snug text-slate-950 text-[clamp(20px,5.5vw,28px)]">
+          {currentCase.rootCause.map((item) => item.text).join(" ")}
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-2xl border-2 border-green-400 bg-white px-3 py-3 text-left shadow-lg">
+        <div className="font-game font-black text-green-700 text-[clamp(20px,5.5vw,28px)]">
+          ✅ การป้องกัน
+        </div>
+
+        <div className="mt-2 space-y-2">
+          {currentCase.prevention.map((item, index) => (
+            <div
+              key={`${item.text}-${index}`}
+              className="rounded-xl bg-slate-100 px-3 py-2 font-game font-black leading-snug text-slate-950 text-[clamp(19px,5.2vw,26px)]"
+            >
+              ✓ {item.text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={goNextCase}
+        className="mt-4 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95"
+        style={{
+          fontSize: "clamp(1.35rem,6vw,2rem)",
+          textShadow: "0 3px 0 rgba(0,0,0,0.55)",
+        }}
+      >
+        เคสถัดไป ▶
+      </button>
+    </div>
+  </div>
+)}
       {stageFeedback && (
   <div className="pointer-events-none fixed inset-0 z-[99998] grid place-items-center px-4">
     <div className="animate-bounce rounded-[28px] border-4 border-yellow-300 bg-black px-5 py-4 text-center font-game font-black text-yellow-300 shadow-[0_0_34px_rgba(250,204,21,0.75)] text-[clamp(24px,7vw,38px)]">
@@ -973,12 +910,6 @@ function getPageStory(page: CasePage) {
     };
   }
 
-  if (page === "lesson") {
-    return {
-      title: "ดังนั้น",
-      body: "",
-    };
-  }
 
   return {
     title: "🔒 เริ่มการตรวจสอบเหตุการณ์",
@@ -991,6 +922,5 @@ function getInvestigationSteps() {
     { page: "evidence", label: "หลักฐาน" },
     { page: "rootCause", label: "สาเหตุ" },
     { page: "prevention", label: "ป้องกัน" },
-    { page: "lesson", label: "บทเรียน" },
   ] as const;
 }
