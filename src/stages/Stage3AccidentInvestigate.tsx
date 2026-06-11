@@ -92,13 +92,13 @@ const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
   const [inserted, setInserted] = useState(false);
 
   const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
-const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverMissingLetters, setRecoverMissingLetters] = useState<string[]>([]);
   const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
   const [recoverSelected, setRecoverSelected] = useState<RecoverToken[]>([]);
   const [phasePuzzle, setPhasePuzzle] = useState<PhaseRecoverPuzzle | null>(null);
 const [phaseFilledWords, setPhaseFilledWords] = useState<string[]>([]);
-  const [recoverError, setRecoverError] = useState("");
+const [wrongShake, setWrongShake] = useState(false);
+const [recoverError, setRecoverError] = useState("");
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -184,7 +184,8 @@ const [phaseFilledWords, setPhaseFilledWords] = useState<string[]>([]);
   };
 
   const lines = getLines();
-  const allRevealed = page === "locked" || revealedIndexes.length >= lines.length;
+  const allRevealed =
+  page === "locked" || page === "lesson" || revealedIndexes.length >= lines.length;
   useEffect(() => {
     if (page === "locked" || lines.length === 0) return;
   
@@ -373,7 +374,6 @@ setPhaseFilledWords([]);
     if (targetIndex < 0) return;
   
     setPendingLineIndex(targetIndex);
-    setLastUnlockMode("letterFill");
   
     const sourceLines = page === "report" ? currentCase.incidentReport : lines;
     const puzzle = buildStage3PhasePuzzle(sourceLines, 3);
@@ -417,7 +417,17 @@ setPhaseFilledWords([]);
   
     setRecoverError("");
   };
-
+  const triggerWrongShake = () => {
+    setWrongShake(false);
+  
+    window.requestAnimationFrame(() => {
+      setWrongShake(true);
+  
+      window.setTimeout(() => {
+        setWrongShake(false);
+      }, 320);
+    });
+  };
   const submitRecoverPuzzle = () => {
     if (paused || unlockMode !== "letterFill" || !phasePuzzle) return;
   
@@ -431,6 +441,7 @@ setPhaseFilledWords([]);
   
     if (!isCorrectOrder) {
       setRecoverError("❌ คำยังไม่ตรงช่อง ลองเรียงใหม่อีกครั้ง");
+      triggerWrongShake();
   
       const selectedBack = [...recoverSelected];
   
@@ -469,7 +480,6 @@ setPhaseFilledWords([]);
       setPageIndex(0);
       setRevealedIndexes([]);
       setReportUnlocked(false);
-      setLastUnlockMode(null);
       resetAccessCard();
       return;
     }
@@ -529,7 +539,7 @@ const reportDetailsReady =
           className={[
             "rounded-full px-2.5 py-1 font-game font-black text-[clamp(11px,3vw,13px)]",
             isCurrent
-              ? "animate-pulse bg-yellow-300 text-slate-950 shadow-[0_0_14px_rgba(250,204,21,0.65)]"
+  ? "bg-yellow-300 text-slate-950 ring-2 ring-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.8)]"
               : isDone
               ? "bg-green-500 text-white"
               : "bg-white/10 text-white/45",
@@ -806,8 +816,13 @@ const reportDetailsReady =
 <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-950 p-1">
 
 <div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-2 py-2 font-black leading-tight text-white text-[clamp(19px,5vw,25px)]">
-<div className="rounded-xl bg-black/25 px-3 py-3 text-left leading-snug">
-  {phasePuzzle?.maskedLines.map((line, lineIndex) => {
+<div
+  className={[
+    "rounded-xl bg-black/25 px-3 py-3 text-left leading-snug",
+    wrongShake ? "stage3-wrong-shake" : "",
+  ].join(" ")}
+>
+{phasePuzzle?.maskedLines?.map((line, lineIndex) => {
     const displayLine = line.replace(/____/g, () => {
       const word = phaseFilledWords[globalFillIndex];
       globalFillIndex += 1;
@@ -873,7 +888,7 @@ const reportDetailsReady =
   </div>
 )}
 
-<div className={unlockMode || page === "report" ? "hidden" : "mt-4 space-y-3"}>
+<div className={unlockMode || page === "report" || page === "lesson" ? "hidden" : "mt-4 space-y-3"}>
 {lines
   .filter((_, index) => !revealedIndexes.includes(index) && !unlockMode)
   .map((line, index) => {
@@ -911,7 +926,11 @@ const reportDetailsReady =
 })}
               </div>
               {page === "lesson" && !unlockMode && (
-  <div className="mt-0 rounded-2xl bg-green-500 px-4 py-4">
+  <div className="mt-2 rounded-2xl border-2 border-green-300 bg-green-500 px-4 py-4">
+    <div className="mb-3 text-center font-game font-black text-white text-[clamp(18px,5vw,24px)]">
+      จากเหตุการณ์นี้
+    </div>
+
     <div className="font-game font-black leading-snug text-white text-[clamp(18px,4.8vw,24px)]">
       {currentCase.lesson.text}
     </div>
@@ -923,7 +942,7 @@ const reportDetailsReady =
     className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
   >
     {page === "lesson"
-  ? "🔒 ปิดเคส / เคสต่อไป"
+  ? "ปิดเคส / เคสต่อไป"
   : page === "report"
   ? "หาหลักฐานเพิ่มเติม"
   : page === "evidence"
@@ -931,7 +950,7 @@ const reportDetailsReady =
   : page === "rootCause"
   ? "ดูวิธีป้องกัน"
   : page === "prevention"
-  ? "สรุปบทเรียน"
+  ? "สรุป"
   : "เปิดหน้าถัดไป ▶"}
   </button>
 )}
@@ -952,14 +971,6 @@ const reportDetailsReady =
   );
 }
 
-function getPageTitle(page: CasePage) {
-  if (page === "report") return "📄 INCIDENT REPORT";
-  if (page === "evidence") return "📁 EVIDENCE";
-  if (page === "rootCause") return "🔎 ROOT CAUSE";
-  if (page === "prevention") return "🛡 PREVENTION";
-  if (page === "lesson") return "🏆 LESSON LEARNED";
-  return "🔒 CASE LOCKED";
-}
 function getPageStory(page: CasePage) {
   if (page === "report") {
     return {
@@ -977,7 +988,7 @@ function getPageStory(page: CasePage) {
 
   if (page === "rootCause") {
     return {
-      title: "ทำไมถึงเกิดเหตุการณ์นี้",
+      title: "สาเหตุที่เกิดเหตุการณ์นี้",
       body: "",
     };
   }
