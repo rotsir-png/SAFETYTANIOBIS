@@ -48,19 +48,8 @@ export default function CampaignScreen({ progress, onStage, onBack }: Props) {
 
   const isUnlocked = (id: number) => {
     if (id === 1) return true;
-  
-    // TEMP LOCK: ยังไม่เปิด Stage 2 และ Stage 3
-    // ===== TEMP LOCK =====
-//if (id === 2 || id === 3) return false;
-
-// ===== OPEN STAGE 2 =====
-// if (id === 2) return progress.passedStages.includes(1);
-// if (id === 3) return false;
-
-// ===== OPEN ALL =====
-if (id === 2) return true;
-if (id === 3) return true;
-  
+if (id === 2) return progress.passedStages.includes(1);
+if (id === 3) return progress.passedStages.includes(2);
     return false;
   };
   const isPassed = (id: number) => progress.passedStages.includes(id);
@@ -140,18 +129,18 @@ if (id === 3) return true;
       }}
     >
       {stage.id === 2 ? (
-        <>
-          ด่าน 2 จะเปิด
-          <br />
-          8 มิ.ย. 2569 และผ่านด่าน 1
-        </>
-      ) : (
-        <>
-          ด่าน 3 จะเปิด
-          <br />
-          11 มิ.ย. 2569 หลังผ่านด่าน 2
-        </>
-      )}
+  <>
+    ผ่านด่าน 1 ก่อน
+    <br />
+    จึงจะเปิดด่าน 2
+  </>
+) : (
+  <>
+    ผ่านด่าน 2 ก่อน
+    <br />
+    จึงจะเปิดด่าน 3
+  </>
+)}
     </div>
   </div>
 )}

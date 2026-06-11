@@ -186,15 +186,17 @@ if (p) {
   }, [result, refreshProgress]);
 
   const handleNext = useCallback(() => {
-    if (typeof result?.stage === 'number') {
-      const next = result.stage + 1;
+    if (typeof result?.stage !== 'number') return;
   
-      // TEMP LOCK: Stage 2 และ Stage 3 ยังไม่เปิด
-  
-      setCurrentStage(next);
-      setScreen(`stage${next}` as Screen);
+    if (result.stage >= 3) {
+      setScreen('leaderboard');
+      return;
     }
-  }, [result, refreshProgress]);
+  
+    const next = result.stage + 1;
+    setCurrentStage(next);
+    setScreen(`stage${next}` as Screen);
+  }, [result]);
 
   // Hidden dev reset: 5-tap on version text in TitleScreen
   const handleResetProfile = useCallback(() => {

@@ -117,6 +117,7 @@ const [wrongShake, setWrongShake] = useState(false);
 const [recoverError, setRecoverError] = useState("");
 const [screenShake, setScreenShake] = useState(false);
 const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
+const [showIntro, setShowIntro] = useState(true);
 const touchAreaRef = useRef<HTMLDivElement | null>(null);
 
 const dragStartRef = useRef({
@@ -174,6 +175,7 @@ const dragStartRef = useRef({
   };
 
   const handleInsertMove = (clientY: number) => {
+    if (showIntro) return;
     if (paused || accessPhase !== "insert" || !isDraggingCard) return;
 
     const deltaY = clientY - dragStartRef.current.pointerY;
@@ -231,6 +233,7 @@ setPhaseFilledWords([]);
     setRecoverError("");
   };
   const startUnlockInfo = (lineIndex?: number) => {
+    if (showIntro) return;
     if (paused || page === "locked" || allRevealed) return;
   
     const targetIndex =
@@ -360,6 +363,7 @@ showStageFeedback("✅ ถูกต้อง");
     completeUnlock();
   };
   const nextPage = () => {
+    if (showIntro) return;
     if (paused) return;
     if (page === "locked") return;
   
@@ -407,7 +411,79 @@ const reportDetailsReady =
   page === "report" ? allRevealed && !unlockMode : reportUnlocked;
   const fillIndexRef = { current: 0 };
   return (
-    <div
+    <>
+      {showIntro && (
+        <div
+          onPointerUp={() => setShowIntro(false)}
+          className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/90 px-6 text-center"
+        >
+          <div className="mb-4 text-7xl">🕵️</div>
+
+          <div
+            className="font-game font-black text-yellow-300"
+            style={{
+              fontSize: "clamp(1.6rem,7vw,2.3rem)",
+              textShadow: "0 3px 0 rgba(0,0,0,0.5)",
+            }}
+          >
+            ACCIDENT INVESTIGATION
+          </div>
+
+          <div
+            className="mt-3 font-game leading-relaxed text-white/85"
+            style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
+          >
+            <div>🔓 เปิดแฟ้มอุบัติเหตุ</div>
+            <div>📋 วิเคราะห์เหตุการณ์ที่เกิดขึ้น</div>
+            <div>🔍 ค้นหาหลักฐาน</div>
+            <div>⚠️ ระบุสาเหตุ</div>
+            <div>✅ เรียนรู้วิธีป้องกัน</div>
+          </div>
+
+          <div className="mt-4 grid w-full max-w-[340px] gap-2">
+            <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2">
+              <div className="font-game font-black text-red-300">HP -1</div>
+              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
+                เสียบบัตรไม่ถึง Reader
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2">
+              <div className="font-game font-black text-red-300">HP -1</div>
+              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
+                เติมคำผิด
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-green-400/30 bg-green-500/15 px-3 py-2">
+              <div className="font-game font-black text-green-300">เป้าหมาย</div>
+              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
+                ปิดคดีให้ครบ 5 เคส
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-2xl border border-yellow-300/40 bg-yellow-300/10 px-3 py-3">
+            <div
+              className="font-game font-black text-yellow-300"
+              style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
+            >
+              💀 HP หมด = ภารกิจล้มเหลว
+            </div>
+          </div>
+
+          <div className="mt-8 animate-pulse rounded-2xl border-2 border-yellow-300/40 bg-yellow-300/10 px-5 py-3">
+            <div
+              className="font-game font-black text-yellow-300"
+              style={{ fontSize: "clamp(1.1rem,5vw,1.45rem)" }}
+            >
+              👆 แตะเพื่อเริ่มสืบสวน
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div
     className={[
       "h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white",
       screenShake ? "screen-shake" : "",
@@ -436,19 +512,6 @@ const reportDetailsReady =
   <div className="flex shrink-0 items-center gap-2">
   <PauseButton paused={paused} onToggle={togglePause} />
 
-  <button
-    onClick={() => onClear?.(5)}
-    className="rounded-lg bg-lime-400 px-2 py-1 font-black text-black text-xs"
-  >
-    CLEAR
-  </button>
-
-  <button
-    onClick={() => onFail?.()}
-    className="rounded-lg bg-red-500 px-2 py-1 font-black text-white text-xs"
-  >
-    FAIL
-  </button>
 
   <div className="text-right">
       
@@ -892,6 +955,7 @@ style={{
 
 <div className="relative z-[99999]">{PauseOverlay}</div>
     </div>
+    </>
   );
 }
 

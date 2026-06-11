@@ -178,7 +178,7 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
     transition: 'all 0.5s ease 0.4s',
   }}
 >
-        {passed && !isEndless && typeof result.stage === 'number' && result.stage < 8 && (
+        {passed && !isEndless && typeof result.stage === 'number' && result.stage < 3 && (
           <button
             onClick={onNext}
             className="w-full py-5 rounded-2xl font-game font-bold active:scale-95 transition-transform text-white"

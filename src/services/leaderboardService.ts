@@ -197,4 +197,63 @@ export async function fetchDeptParticipation(): Promise<RemoteDeptParticipation[
     console.warn('[Leaderboard] fetchDeptParticipation threw:', err);
     return [];
   }
+}export interface RemoteTeamMemberProgress {
+  employeeId: string;
+  clearedStageCount: number;
+  completed: boolean;
+}
+
+export async function fetchTeamMembersProgress(
+  teamName: string
+): Promise<RemoteTeamMemberProgress[]> {
+  if (!supabase) return [];
+
+  const { data: members, error: memberError } = await supabase
+    .from('team_members')
+    .select('employee_id, team_name')
+    .eq('team_name', teamName)
+    .order('employee_id', { ascending: true });
+
+  if (memberError || !members) {
+    console.warn('[Leaderboard] fetchTeamMembersProgress members error:', memberError?.message);
+    return [];
+  }
+
+  const employeeIds = members.map((m) => m.employee_id);
+  if (employeeIds.length === 0) return [];
+
+  const { data: clears, error: clearError } = await supabase
+    .from('stage_clears')
+    .select('employee_id, stage_id')
+    .in('employee_id', employeeIds)
+    .in('stage_id', [1, 2, 3]);
+
+  if (clearError) {
+    console.warn('[Leaderboard] fetchTeamMembersProgress clears error:', clearError.message);
+    return members.map((m) => ({
+      employeeId: m.employee_id,
+      clearedStageCount: 0,
+      completed: false,
+    }));
+  }
+
+  const stageMap = new Map<string, Set<number>>();
+
+  (clears ?? []).forEach((row) => {
+    if (!stageMap.has(row.employee_id)) {
+      stageMap.set(row.employee_id, new Set());
+    }
+
+    stageMap.get(row.employee_id)?.add(row.stage_id);
+  });
+
+  return members.map((m) => {
+    const clearedStageCount = stageMap.get(m.employee_id)?.size ?? 0;
+
+    return {
+      employeeId: m.employee_id,
+      clearedStageCount,
+      completed: clearedStageCount >= 3,
+    };
+  });
 }
