@@ -19,8 +19,17 @@ export type Stage3UnlockStep =
 
 export type Stage3CaseLine = {
   text: string;
-  keywords: string[];
+  keywords?: string[];
 };
+
+export type Stage3CasePhaseKey =
+  | "incidentReport"
+  | "evidence"
+  | "rootCause"
+  | "prevention"
+  | "lesson";
+
+export type Stage3PuzzlePhaseKey = Exclude<Stage3CasePhaseKey, "lesson">;
 
 export type Stage3Case = {
   id: string;
@@ -34,6 +43,85 @@ export type Stage3Case = {
   prevention: Stage3CaseLine[];
   lesson: Stage3CaseLine;
 };
+
+export type Stage3PhasePuzzle = {
+  lines: string[];
+  keywords: string[];
+  maskedLines: string[];
+};
+
+const STAGE3_STOP_WORDS = new Set([
+  "และ",
+  "หรือ",
+  "ให้",
+  "ต้อง",
+  "ก่อน",
+  "หลัง",
+  "การ",
+  "จาก",
+  "ใน",
+  "ที่",
+  "ขณะ",
+  "อยู่",
+  "ทันที",
+]);
+
+export function getStage3PhaseLines(
+  stageCase: Stage3Case,
+  phaseKey: Stage3PuzzlePhaseKey
+): Stage3CaseLine[] {
+  return stageCase[phaseKey];
+}
+
+export function pickStage3KeywordsFromLines(
+  lines: Stage3CaseLine[],
+  maxKeywords = 3
+): string[] {
+  const manualKeywords = lines
+    .flatMap((line) => line.keywords ?? [])
+    .filter(Boolean);
+
+  if (manualKeywords.length > 0) {
+    return manualKeywords.slice(0, maxKeywords);
+  }
+
+  const words =
+    lines
+      .map((line) => line.text)
+      .join(" ")
+      .match(/[ก-๙A-Za-z0-9/]+/g) ?? [];
+
+  return Array.from(new Set(words))
+    .filter((word) => word.length >= 3)
+    .filter((word) => !STAGE3_STOP_WORDS.has(word))
+    .sort((a, b) => b.length - a.length)
+    .slice(0, maxKeywords);
+}
+
+export function buildStage3PhasePuzzle(
+  lines: Stage3CaseLine[],
+  maxKeywords = 3
+): Stage3PhasePuzzle {
+  const keywords = pickStage3KeywordsFromLines(lines, maxKeywords);
+
+  const maskedLines = lines.map((line) => {
+    let maskedText = line.text;
+
+    keywords.forEach((keyword) => {
+      if (maskedText.includes(keyword)) {
+        maskedText = maskedText.replace(keyword, "____");
+      }
+    });
+
+    return maskedText;
+  });
+
+  return {
+    lines: lines.map((line) => line.text),
+    keywords,
+    maskedLines,
+  };
+}
 
 export const stage3Cases: Stage3Case[] = [
   {
@@ -77,7 +165,7 @@ export const stage3Cases: Stage3Case[] = [
         keywords: ["ความผิดปกติ", "ระบบ Pump", "ทำงานอยู่"],
       },
     ],
-    
+
     evidence: [
       {
         text: "พบควัน / กลิ่นไหม้บริเวณตู้ Control",
@@ -85,32 +173,32 @@ export const stage3Cases: Stage3Case[] = [
       },
       {
         text: "จุดเสี่ยงเกี่ยวข้องกับระบบไฟฟ้าและอุปกรณ์ควบคุม",
-        keywords: ["จุดเสี่ยง", "ระบบไฟฟ้า", "อุปกรณ์ควบคุม"],
+        keywords: ["ระบบไฟฟ้า", "อุปกรณ์ควบคุม"],
       },
     ],
-    
+
     rootCause: [
       {
         text: "อาจเกิดจากความร้อนสะสมหรือจุดต่อไฟฟ้าผิดปกติ",
         keywords: ["ความร้อนสะสม", "จุดต่อไฟฟ้า", "ผิดปกติ"],
       },
     ],
-    
+
     prevention: [
       {
         text: "หยุดใช้งานทันที",
-        keywords: ["หยุดใช้งานทันที"],
+        keywords: ["ทันที"],
       },
       {
         text: "กั้นพื้นที่ไม่ให้เข้าใกล้ตู้ควบคุม",
-        keywords: ["กั้นพื้นที่", "ตู้ควบคุม"],
+        keywords: ["กั้นพื้นที่"],
       },
       {
         text: "แจ้งผู้เกี่ยวข้องให้เข้าตรวจสอบก่อนใช้งานต่อ",
-        keywords: ["แจ้งผู้เกี่ยวข้อง", "ตรวจสอบ", "ใช้งานต่อ"],
+        keywords: ["แจ้งผู้เกี่ยวข้อง"],
       },
     ],
-    
+
     lesson: {
       text: "พบควันหรือกลิ่นไหม้จากตู้ไฟฟ้า ต้องหยุดใช้งาน กั้นพื้นที่ และแจ้งผู้เกี่ยวข้องทันที",
       keywords: [

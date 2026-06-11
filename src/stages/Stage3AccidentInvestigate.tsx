@@ -1,6 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import PauseButton, { usePause } from "../components/PauseButton";
-import { stage3Cases, type Stage3CaseLine } from "../data/stage3Cases";
+import {
+  buildStage3PhasePuzzle,
+  stage3Cases,
+  type Stage3CaseLine,
+} from "../data/stage3Cases";
 
 type Props = {
   onExit?: () => void;
@@ -16,25 +20,16 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
-type UnlockMode = "letterFill" | "fileScramble";
+type UnlockMode = "letterFill";
 
 type RecoverToken = {
   id: string;
   text: string;
 };
-
-type RecoverPuzzle = {
-  answer: string;
-  maskedAnswer: string;
-  beforeText: string;
-  afterText: string;
-  missingLetters: string[];
-  choices: RecoverToken[];
-};
-type RebuildPiece = {
-  id: string;
-  text: string;
-  locked?: boolean;
+type PhaseRecoverPuzzle = {
+  lines: string[];
+  maskedLines: string[];
+  keywords: string[];
 };
 const pageOrder: CasePage[] = [
   "locked",
@@ -63,230 +58,6 @@ function randomSwipeZone() {
 function shuffle<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
-function splitThaiGraphemes(text: string) {
-  const SegmenterCtor = (globalThis.Intl as any)?.Segmenter;
-
-  if (SegmenterCtor) {
-    const segmenter = new SegmenterCtor("th", { granularity: "grapheme" });
-    return Array.from(segmenter.segment(text), (item: any) => item.segment);
-  }
-
-  // fallback: กันสระ/วรรณยุกต์ไทยหลุดจากพยัญชนะ
-  const marks = /[\u0E31\u0E34-\u0E3A\u0E47-\u0E4E]/;
-  const result: string[] = [];
-
-  for (const char of Array.from(text)) {
-    if (marks.test(char) && result.length > 0) {
-      result[result.length - 1] += char;
-    } else {
-      result.push(char);
-    }
-  }
-
-  return result;
-}
-function splitLineForScramble(text: string, keywords: string[]) {
-  const cleanKeywords = keywords
-    .map((keyword) => keyword.trim())
-    .filter(Boolean)
-    .filter((keyword) => text.includes(keyword));
-
-  if (cleanKeywords.length >= 2) {
-    const parts: string[] = [];
-    let cursor = 0;
-
-    cleanKeywords.forEach((keyword) => {
-      const index = text.indexOf(keyword, cursor);
-
-      if (index < 0) return;
-
-      const before = text.slice(cursor, index).trim();
-      if (before) parts.push(before);
-
-      parts.push(keyword);
-      cursor = index + keyword.length;
-    });
-
-    const after = text.slice(cursor).trim();
-    if (after) parts.push(after);
-
-    return parts.filter(Boolean);
-  }
-
-  const fallbackParts = text
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (fallbackParts.length >= 2) return fallbackParts;
-
-  return [text];
-}
-function makeRebuildPieces(parts: string[]) {
-  const cleanParts = parts.map((p) => p.trim()).filter(Boolean);
-
-  const weakClues = ["และ", "หรือ", "กับ", "ใน", "ที่", "จาก", "เพื่อ"];
-
-  const clueCandidates = cleanParts
-    .map((text, index) => ({ text, index }))
-    .filter((item) => item.text.length >= 5)
-    .filter((item) => !weakClues.includes(item.text));
-
-    const clueCount =
-  cleanParts.length >= 8 ? 3 :
-  cleanParts.length >= 6 ? 2 :
-  1;
-
-const clueIndexes =
-  clueCandidates.length > 0
-    ? shuffle(clueCandidates)
-        .slice(0, Math.min(clueCount, clueCandidates.length))
-        .map((item) => item.index)
-    : [Math.floor(Math.random() * cleanParts.length)];
-
-const unlockedParts = cleanParts
-  .map((text, index) => ({ text, index }))
-  .filter((item) => !clueIndexes.includes(item.index));
-
-  const shuffledUnlocked = shuffle(unlockedParts);
-
-  let pullIndex = 0;
-
-  const pieces = cleanParts.map((text, index) => {
-    if (clueIndexes.includes(index)) {
-      return {
-        id: `locked-${text}-${index}-${Math.random()}`,
-        text,
-        locked: true,
-      };
-    }
-
-    const next = shuffledUnlocked[pullIndex];
-    pullIndex += 1;
-
-    return {
-      id: `${next.text}-${index}-${Math.random()}`,
-      text: next.text,
-      locked: false,
-    };
-  });
-
-  return {
-    pieces,
-    correctOrder: cleanParts,
-  };
-}
-
-function canFileScramble(line: Stage3CaseLine) {
-  return splitLineForScramble(line.text, line.keywords).length >= 2;
-}
-function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
-  const answer =
-    line.keywords.length > 0
-      ? line.keywords[Math.floor(Math.random() * line.keywords.length)]
-      : line.text.trim().split(/\s+/)[0] || line.text[0] || "";
-
-  const answerIndex = line.text.indexOf(answer);
-  const beforeText = answerIndex >= 0 ? line.text.slice(0, answerIndex) : "";
-  const afterText =
-    answerIndex >= 0 ? line.text.slice(answerIndex + answer.length) : line.text;
-
-  const tokens = splitThaiGraphemes(answer);
-
-  const candidateIndexes = tokens
-    .map((token, index) => ({ token, index }))
-    .filter((item) => item.token.trim() !== "")
-    .filter((item) => item.token !== " ")
-    .filter((item) => item.token !== "-");
-
-    let minMissing = 3;
-    let maxMissing = 5;
-    
-    if (candidateIndexes.length <= 4) {
-      minMissing = 2;
-      maxMissing = 2;
-    } else if (candidateIndexes.length <= 6) {
-      minMissing = 2;
-      maxMissing = 3;
-    } else if (candidateIndexes.length <= 9) {
-      minMissing = 3;
-      maxMissing = 4;
-    }
-    
-    let missingCount =
-      minMissing + Math.floor(Math.random() * (maxMissing - minMissing + 1));
-    
-    missingCount = Math.min(missingCount, candidateIndexes.length);
-
-  let missingIndexes = shuffle(candidateIndexes).slice(0, missingCount);
-
-  missingIndexes = missingIndexes.sort((a, b) => a.index - b.index);
-
-  const missingLetters = missingIndexes.map((item) => item.token);
-
-  const maskedAnswer = tokens
-    .map((token, index) =>
-      missingIndexes.some((item) => item.index === index) ? "_" : token
-    )
-    .join("");
-
-  const fallbackDecoys = [
-    "ก",
-    "ข",
-    "ค",
-    "ง",
-    "จ",
-    "ต",
-    "ถ",
-    "ท",
-    "น",
-    "บ",
-    "ป",
-    "พ",
-    "ม",
-    "ย",
-    "ร",
-    "ล",
-    "ว",
-    "ส",
-    "อ",
-    "ะ",
-    "า",
-  ];
-
-  const decoys = shuffle([...tokens, ...fallbackDecoys])
-    .filter((token) => token.trim() !== "")
-    .filter((token) => !missingLetters.includes(token))
-    .slice(0, Math.max(0, 6 - missingLetters.length));
-
-  const choiceLetters = shuffle([...missingLetters, ...decoys]);
-
-  const choices = choiceLetters.map((text, index) => ({
-    id: `${text}-${index}-${Math.random()}`,
-    text,
-  }));
-
-  return {
-    answer,
-    maskedAnswer,
-    beforeText,
-    afterText,
-    missingLetters,
-    choices,
-  };
-}
-function makeReportLine(currentCase: { incidentReport: Stage3CaseLine[] }) {
-  return {
-    text: currentCase.incidentReport.map((line) => line.text).join(" "),
-    keywords: currentCase.incidentReport.flatMap((line) => line.keywords),
-  };
-}
-function makePhaseLine(lines: Stage3CaseLine[]) {
-  return {
-    text: lines.map((line) => line.text).join(" "),
-    keywords: lines.flatMap((line) => line.keywords),
-  };
-}
 function getUnlockButtonText(page: CasePage) {
   if (page === "evidence") return "เปิดหลักฐานที่ซ่อนอยู่";
   if (page === "rootCause") return "สาเหตุของเหตุการณ์ที่เกิดขึ้น";
@@ -303,7 +74,6 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
 
   const [caseIndex, setCaseIndex] = useState(0);
   const [pageIndex, setPageIndex] = useState(0);
-  const [revealedCount, setRevealedCount] = useState(0);
   const [revealedIndexes, setRevealedIndexes] = useState<number[]>([]);
   const [reportUnlocked, setReportUnlocked] = useState(false);
 const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
@@ -323,18 +93,12 @@ const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
 
   const [unlockMode, setUnlockMode] = useState<UnlockMode | null>(null);
 const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
-  const [recoverAnswer, setRecoverAnswer] = useState("");
-  const [recoverMaskedAnswer, setRecoverMaskedAnswer] = useState("");
-  const [recoverBeforeText, setRecoverBeforeText] = useState("");
-  const [recoverAfterText, setRecoverAfterText] = useState("");
   const [recoverMissingLetters, setRecoverMissingLetters] = useState<string[]>([]);
   const [recoverChoices, setRecoverChoices] = useState<RecoverToken[]>([]);
   const [recoverSelected, setRecoverSelected] = useState<RecoverToken[]>([]);
+  const [phasePuzzle, setPhasePuzzle] = useState<PhaseRecoverPuzzle | null>(null);
+const [phaseFilledWords, setPhaseFilledWords] = useState<string[]>([]);
   const [recoverError, setRecoverError] = useState("");
-  const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
-  const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
-  const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
-  const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -432,7 +196,7 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
       setRevealedIndexes([]);
     
       window.setTimeout(() => {
-        startUnlockInfo(0, "letterFill");
+        startUnlockInfo(0);
       }, 350);
     
       return;
@@ -475,7 +239,6 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
 
     window.setTimeout(() => {
       setPageIndex(1);
-      setRevealedCount(0);
       setAccessResult(null);
       resetAccessCard();
     }, 900);
@@ -580,218 +343,108 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const completeUnlock = () => {
     setScore((s) => s + 25);
   
-    const targetIndex = pendingLineIndex;
-    if (targetIndex === null) return;
+    if (pendingLineIndex === null) return;
   
-    const nextRevealedIndexes = lines.map((_, index) => index);
-
-setRevealedIndexes(nextRevealedIndexes);
-setPendingLineIndex(null);
-
-if (page === "report") {
-  setReportUnlocked(true);
-  return;
-}
+    setRevealedIndexes(lines.map((_, index) => index));
+    setPendingLineIndex(null);
   
-    window.setTimeout(() => {
-      if (pageIndex >= pageOrder.length - 1) {
-        setCaseIndex((caseValue) => caseValue + 1);
-        setReportUnlocked(false);
-        setPageIndex(0);
-        setRevealedCount(0);
-        setRevealedIndexes([]);
-        resetAccessCard();
-        return;
-      }
-  
-      setPageIndex((pageValue) => pageValue + 1);
-      setRevealedCount(0);
-      setRevealedIndexes([]);
-    }, 650);
+    if (page === "report") {
+      setReportUnlocked(true);
+    }
   };
   const resetUnlockState = () => {
     setUnlockMode(null);
-  
-    setRecoverAnswer("");
-    setRecoverMaskedAnswer("");
-    setRecoverBeforeText("");
-    setRecoverAfterText("");
     setRecoverMissingLetters([]);
     setRecoverChoices([]);
     setRecoverSelected([]);
-  
-    setRebuildPieces([]);
-    setRebuildCorrectOrder([]);
-    setDraggingPieceId(null);
-    setSelectedPieceId(null);
+    setPhasePuzzle(null);
+setPhaseFilledWords([]);
   
     setRecoverError("");
   };
-  const startUnlockInfo = (lineIndex?: number, forcedMode?: UnlockMode) => {
+  const startUnlockInfo = (lineIndex?: number) => {
     if (paused || page === "locked" || allRevealed) return;
   
     const targetIndex =
-  typeof lineIndex === "number"
-    ? lineIndex
-    : lines.findIndex((_, index) => !revealedIndexes.includes(index));
-
-if (targetIndex < 0) return;
-
-const targetLine =
-  page === "report"
-    ? makeReportLine(currentCase)
-    : makePhaseLine(lines);
-
-if (!targetLine) return;
-
-setPendingLineIndex(targetIndex);
+      typeof lineIndex === "number"
+        ? lineIndex
+        : lines.findIndex((_, index) => !revealedIndexes.includes(index));
   
-    const availableModes: UnlockMode[] = ["letterFill"];
+    if (targetIndex < 0) return;
   
-    if (canFileScramble(targetLine)) {
-      availableModes.push("fileScramble");
-    }
+    setPendingLineIndex(targetIndex);
+    setLastUnlockMode("letterFill");
   
-    const modePool =
-  lastUnlockMode && availableModes.length > 1
-    ? availableModes.filter((mode) => mode !== lastUnlockMode)
-    : availableModes;
-
-    const selectedMode =
-    forcedMode && availableModes.includes(forcedMode)
-      ? forcedMode
-      : modePool[Math.floor(Math.random() * modePool.length)];
+    const sourceLines = page === "report" ? currentCase.incidentReport : lines;
+    const puzzle = buildStage3PhasePuzzle(sourceLines, 3);
   
-  setLastUnlockMode(selectedMode);
-  
-    if (selectedMode === "letterFill") {
-      const puzzle = makeRecoverPuzzle(targetLine);
-  
-      setUnlockMode("letterFill");
-      setRecoverAnswer(puzzle.answer);
-      setRecoverMaskedAnswer(puzzle.maskedAnswer);
-      setRecoverBeforeText(puzzle.beforeText);
-      setRecoverAfterText(puzzle.afterText);
-      setRecoverMissingLetters(puzzle.missingLetters);
-      setRecoverChoices(puzzle.choices);
-      setRecoverSelected([]);
-      setRecoverError("");
-      return;
-    }
-  
-    const parts = splitLineForScramble(targetLine.text, targetLine.keywords);
-    const rebuild = makeRebuildPieces(parts);
-  
-    setUnlockMode("fileScramble");
-    setRebuildPieces(rebuild.pieces);
-    setRebuildCorrectOrder(rebuild.correctOrder);
-    setDraggingPieceId(null);
+    setUnlockMode("letterFill");
+    setPhasePuzzle(puzzle);
+    setPhaseFilledWords([]);
+    setRecoverMissingLetters(puzzle.keywords);
+    setRecoverChoices(
+      shuffle(puzzle.keywords).map((text, index) => ({
+        id: `${text}-${index}-${Math.random()}`,
+        text,
+      }))
+    );
+    setRecoverSelected([]);
     setRecoverError("");
   };
 
   const selectRecoverToken = (token: RecoverToken) => {
     if (recoverSelected.length >= recoverMissingLetters.length) return;
-
+  
     setRecoverChoices((choices) => choices.filter((item) => item.id !== token.id));
     setRecoverSelected((selected) => [...selected, token]);
+    setPhaseFilledWords((words) => [...words, token.text]);
     setRecoverError("");
   };
 
   const removeRecoverToken = (token: RecoverToken) => {
-    setRecoverSelected((selected) => selected.filter((item) => item.id !== token.id));
+    setRecoverSelected((selected) =>
+      selected.filter((item) => item.id !== token.id)
+    );
+  
     setRecoverChoices((choices) => [...choices, token]);
+  
+    setPhaseFilledWords((words) => {
+      const removeIndex = words.findIndex((word) => word === token.text);
+      if (removeIndex < 0) return words;
+  
+      return words.filter((_, index) => index !== removeIndex);
+    });
+  
     setRecoverError("");
   };
 
   const submitRecoverPuzzle = () => {
-    if (paused || unlockMode !== "letterFill") return;
+    if (paused || unlockMode !== "letterFill" || !phasePuzzle) return;
   
-    if (recoverSelected.length < recoverMissingLetters.length) {
-      setRecoverError("❌ เติมตัวอักษรให้ครบก่อน");
+    if (phaseFilledWords.length < phasePuzzle.keywords.length) {
+      setRecoverError("❌ เติมคำให้ครบก่อน");
       return;
     }
   
-    const playerAnswer = recoverSelected.map((token) => token.text).join("");
-    const correctAnswer = recoverMissingLetters.join("");
+    const isCorrectOrder =
+      phaseFilledWords.join("|") === phasePuzzle.keywords.join("|");
   
-    if (playerAnswer !== correctAnswer) {
-      setRecoverError("❌ ตัวอักษรยังไม่ถูก ลองดูรูปคำอีกที");
+    if (!isCorrectOrder) {
+      setRecoverError("❌ คำยังไม่ตรงช่อง ลองเรียงใหม่อีกครั้ง");
+  
+      const selectedBack = [...recoverSelected];
+  
+      setRecoverSelected([]);
+      setPhaseFilledWords([]);
+      setRecoverChoices((choices) => shuffle([...choices, ...selectedBack]));
+  
       return;
     }
   
-    showStageFeedback("✅ RECOVERED +25");
+    showStageFeedback("✅ เข้าใจแล้ว +25");
   
     resetUnlockState();
-  
     completeUnlock();
-  };
-  const submitRebuildPuzzle = () => {
-    if (paused || unlockMode !== "fileScramble") return;
-  
-    const playerOrder = rebuildPieces.map((piece) => piece.text);
-    const correct = playerOrder.join("|") === rebuildCorrectOrder.join("|");
-  
-    if (!correct) {
-      setRecoverError("❌ ลำดับยังไม่ถูก ลองใหม่");
-      return;
-    }
-  
-    showStageFeedback("✅ FILE RESTORED +25");
-  
-    resetUnlockState();
-  
-    completeUnlock();
-  };
-  
-  const swapRebuildPieces = (targetId: string) => {
-    if (!draggingPieceId || draggingPieceId === targetId) return;
-  
-    setRebuildPieces((pieces) => {
-      const fromIndex = pieces.findIndex((p) => p.id === draggingPieceId);
-      const toIndex = pieces.findIndex((p) => p.id === targetId);
-  
-      if (fromIndex < 0 || toIndex < 0) return pieces;
-      if (pieces[fromIndex].locked || pieces[toIndex].locked) return pieces;
-  
-      const next = [...pieces];
-  
-      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-  
-      return next;
-    });
-  
-    setRecoverError("");
-  };
-  const tapSwapRebuildPiece = (targetId: string) => {
-    const targetPiece = rebuildPieces.find((piece) => piece.id === targetId);
-    if (!targetPiece || targetPiece.locked) return;
-  
-    if (!selectedPieceId) {
-      setSelectedPieceId(targetId);
-      setRecoverError("");
-      return;
-    }
-  
-    if (selectedPieceId === targetId) {
-      setSelectedPieceId(null);
-      return;
-    }
-  
-    setRebuildPieces((pieces) => {
-      const fromIndex = pieces.findIndex((p) => p.id === selectedPieceId);
-      const toIndex = pieces.findIndex((p) => p.id === targetId);
-  
-      if (fromIndex < 0 || toIndex < 0) return pieces;
-      if (pieces[fromIndex].locked || pieces[toIndex].locked) return pieces;
-  
-      const next = [...pieces];
-      [next[fromIndex], next[toIndex]] = [next[toIndex], next[fromIndex]];
-  
-      return next;
-    });
-  
-    setSelectedPieceId(null);
-    setRecoverError("");
   };
   const nextPage = () => {
     if (paused) return;
@@ -814,7 +467,6 @@ setPendingLineIndex(targetIndex);
     if (page === "lesson" || pageIndex >= pageOrder.length - 1) {
       setCaseIndex((v) => v + 1);
       setPageIndex(0);
-      setRevealedCount(0);
       setRevealedIndexes([]);
       setReportUnlocked(false);
       setLastUnlockMode(null);
@@ -823,7 +475,6 @@ setPendingLineIndex(targetIndex);
     }
   
     setPageIndex((v) => v + 1);
-    setRevealedCount(0);
   };
 
   const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
@@ -832,21 +483,7 @@ setPendingLineIndex(targetIndex);
 );
 const reportDetailsReady =
   page === "report" ? allRevealed && !unlockMode : reportUnlocked;
-  const previewAnswer = (() => {
-    let slotIndex = 0;
-  
-    return splitThaiGraphemes(recoverMaskedAnswer)
-      .map((token) => {
-        if (token !== "_") return token;
-  
-        const selected = recoverSelected[slotIndex];
-        slotIndex += 1;
-  
-        return selected ? selected.text : "_";
-      })
-      .join("");
-  })();
-
+  let globalFillIndex = 0;
   return (
     <div className="h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white">
       <div className="mx-auto flex h-full w-full max-w-[430px] flex-col">
@@ -1127,68 +764,84 @@ const reportDetailsReady =
     page === "report"
       ? "px-1 py-0 text-left"
       : page === "lesson"
-      ? "rounded-2xl bg-black/35 border border-white/10 px-3 py-2 text-left"
+      ? "px-1 py-1 text-left"
+      : unlockMode
+      ? "px-1 py-1 text-left"
       : "rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left"
   }
 >
 {page !== "report" && (
-  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
+  <div
+    className={
+      unlockMode
+        ? "font-game font-black text-yellow-300 text-center leading-tight text-[clamp(15px,4vw,20px)]"
+        : "font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]"
+    }
+  >
     {getPageStory(page).title}
   </div>
 )}
 
-{page !== "report" && (
+{page !== "report" && !unlockMode && (
   <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
     {getPageStory(page).body}
   </div>
 )}
 
 {revealedTextList.length > 0 && !unlockMode && page !== "report" && page !== "lesson" && (
-  <div className="mt-3 space-y-2">
+  <div className="mt-2 rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(16px,4.3vw,20px)]">
     {revealedTextList.map((line, index) => (
-      <div
-      key={`${line.text}-${index}`}
-      className="rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(15px,4vw,19px)]"
-    >
-      <span className="mr-2 text-yellow-500">
-        {index + 1}.
-      </span>
-    
-      {line.text}
-    </div>
+      <div key={`${line.text}-${index}`} className={index > 0 ? "mt-1.5" : ""}>
+        <span className="mr-2 text-yellow-500">{index + 1}.</span>
+        {line.text}
+      </div>
     ))}
   </div>
 )}
 </div>
 
               {unlockMode === "letterFill" && (
- <div className="mt-2 flex min-h-0 flex-1 flex-col text-center">
+ <div className="mt-2 flex min-h-0 flex-1 flex-col overflow-hidden text-center">
 
 <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-950 p-1">
 
-<div className="max-h-[40dvh] overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-tight text-white text-[clamp(21px,5.6vw,28px)]">
-        {recoverBeforeText}
-        <span className="mx-0.5 inline rounded-md bg-yellow-300 px-1 py-0 align-baseline font-black tracking-normal text-slate-950">
-  {previewAnswer || recoverMaskedAnswer}
-</span>
-        {recoverAfterText}
-      </div>
+<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-2 py-2 font-black leading-tight text-white text-[clamp(19px,5vw,25px)]">
+<div className="rounded-xl bg-black/25 px-3 py-3 text-left leading-snug">
+  {phasePuzzle?.maskedLines.map((line, lineIndex) => {
+    const displayLine = line.replace(/____/g, () => {
+      const word = phaseFilledWords[globalFillIndex];
+      globalFillIndex += 1;
 
-      <div className="mt-1 flex min-h-[44px] flex-wrap items-center justify-center gap-2 rounded-xl bg-white/5 p-2">
+      return word ? `【${word}】` : "____";
+    });
+
+    return (
+      <span key={`${line}-${lineIndex}`}>
+        {displayLine}
+        {lineIndex < (phasePuzzle?.maskedLines.length ?? 0) - 1 ? " " : ""}
+      </span>
+    );
+  })}
+</div>
+</div>
+
+<div className="mt-1 min-h-[44px] rounded-xl bg-white/5 px-2 py-2">
   {recoverSelected.length === 0 ? (
-    <div className="font-bold text-white/35 text-[clamp(13px,3.5vw,16px)]">
-      แตะเพื่อเอาตัวอักษรกลับ
+    <div className="text-center font-game font-black text-white/45 text-[clamp(12px,3vw,14px)]">
+      แตะคำด้านล่างเพื่อเติมช่องว่าง
     </div>
   ) : (
-    recoverSelected.map((token) => (
-      <button
-        key={token.id}
-        onClick={() => removeRecoverToken(token)}
-        className="rounded-xl bg-green-400 px-3 py-2 font-game font-black leading-none text-slate-950 active:scale-95 text-[clamp(19px,5vw,26px)]"
-      >
-        {token.text}
-      </button>
-    ))
+    <div className="flex flex-wrap justify-center gap-2">
+      {recoverSelected.map((token) => (
+        <button
+          key={token.id}
+          onClick={() => removeRecoverToken(token)}
+          className="rounded-lg bg-green-400 px-2 py-1 font-game font-black text-slate-950 text-[clamp(14px,3.8vw,18px)]"
+        >
+          {token.text}
+        </button>
+      ))}
+    </div>
   )}
 </div>
 
@@ -1197,7 +850,7 @@ const reportDetailsReady =
           <button
             key={token.id}
             onClick={() => selectRecoverToken(token)}
-            className="rounded-xl bg-yellow-300 px-4 py-2.5 font-game font-black leading-none text-slate-950 shadow active:scale-95 text-[clamp(21px,5.6vw,28px)]"
+            className="rounded-xl bg-yellow-300 px-3 py-2 font-game font-black leading-none text-slate-950 shadow active:scale-95 text-[clamp(18px,5vw,24px)]"
           >
             {token.text}
           </button>
@@ -1206,86 +859,16 @@ const reportDetailsReady =
     </div>
 
     {recoverError && (
-      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
+      <div className="mt-1 rounded-xl bg-red-600 px-3 py-1.5 font-black text-white text-[clamp(12px,3.2vw,15px)]">
         {recoverError}
       </div>
     )}
 
     <button
       onClick={submitRecoverPuzzle}
-      className="mt-2 shrink-0 w-full rounded-xl bg-green-500 py-2.5 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]"
+      className="mt-1 shrink-0 w-full rounded-xl bg-green-500 py-2 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(15px,4vw,20px)]"
     >
       ✅ ส่งคำตอบ
-    </button>
-  </div>
-)}
-{unlockMode === "fileScramble" && (
-  <div className="mt-2 rounded-[18px] bg-black/45 p-2 text-center">
-    <div className="font-game font-black leading-none text-purple-300 text-[clamp(19px,5vw,27px)]">
-    เรียงข้อมูลให้ถูกต้อง
-    </div>
-
-    <p className="mt-1 font-bold leading-tight text-white/60 text-[clamp(12px,3.3vw,15px)]">
-    ลากสลับตำแหน่ง หรือแตะ 2 ชิ้นเพื่อสลับกัน
-</p>
-
-
-<div className="mt-1 p-0">
-<div className="mb-1 font-black text-white/45 text-[clamp(11px,3vw,14px)]">
-      เรียงจากซ้ายไปขวา
-      </div>
-
-      <div className="flex min-h-[88px] flex-wrap items-center justify-center gap-1.5 rounded-2xl bg-white/5 p-1.5">
-      {rebuildPieces.map((piece) => (
-  <button
-    key={piece.id}
-    draggable={!piece.locked}
-    onDragStart={() => {
-      if (piece.locked) return;
-      setDraggingPieceId(piece.id);
-    }}
-    onDragOver={(e) => {
-      if (piece.locked) return;
-      e.preventDefault();
-    }}
-    onDrop={() => {
-      if (piece.locked) return;
-      swapRebuildPieces(piece.id);
-    }}
-    onDragEnd={() => setDraggingPieceId(null)}
-    onClick={() => {
-      if (draggingPieceId) return;
-      tapSwapRebuildPiece(piece.id);
-    }}
-    className={[
-      "rounded-xl px-3.5 py-2.5 font-black leading-none shadow-lg active:scale-95 text-[clamp(19px,5vw,26px)]",
-      piece.locked
-        ? "border-2 border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(103,232,249,0.45)]"
-        : draggingPieceId === piece.id
-? "bg-purple-300 text-slate-950 opacity-60"
-: selectedPieceId === piece.id
-? "bg-orange-300 text-slate-950 ring-4 ring-orange-100 scale-[1.03]"
-: "bg-yellow-300 text-slate-950",
-    ].join(" ")}
-  >
-    {piece.locked ? "💡 " : ""}
-    {piece.text}
-  </button>
-))}
-      </div>
-    </div>
-
-    {recoverError && (
-      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
-        {recoverError}
-      </div>
-    )}
-
-    <button
-      onClick={submitRebuildPuzzle}
-      className="mt-2 w-full rounded-xl bg-purple-400 py-2.5 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(17px,4.5vw,23px)]"
-    >
-      📄 ยืนยันหลักฐาน
     </button>
   </div>
 )}
@@ -1300,10 +883,10 @@ const reportDetailsReady =
     return (
     <button
     key={`${line.text}-${originalIndex}`}
-      onClick={() => {
-        if (revealed || unlockMode) return;
-        startUnlockInfo(0);
-      }}
+    onClick={() => {
+      if (revealed || unlockMode) return;
+      startUnlockInfo(originalIndex);
+    }}
       disabled={revealed || !!unlockMode}
       className={[
         "w-full rounded-2xl px-4 py-4 text-left font-game font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
