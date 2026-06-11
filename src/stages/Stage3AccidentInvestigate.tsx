@@ -334,6 +334,7 @@ export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const [pageIndex, setPageIndex] = useState(0);
   const [revealedCount, setRevealedCount] = useState(0);
   const [revealedIndexes, setRevealedIndexes] = useState<number[]>([]);
+  const [reportUnlocked, setReportUnlocked] = useState(false);
 const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
   const [score, setScore] = useState(0);
   const [stageFeedback, setStageFeedback] = useState("");
@@ -453,9 +454,24 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   useEffect(() => {
     if (page === "locked" || lines.length === 0) return;
   
-    const randomIndex = Math.floor(Math.random() * lines.length);
-    setRevealedIndexes([randomIndex]);
     setPendingLineIndex(null);
+    setUnlockMode(null);
+    setRecoverError("");
+  
+    if (page === "report") {
+      setRevealedIndexes([0]);
+  
+      if (lines.length > 1) {
+        window.setTimeout(() => {
+          startUnlockInfo(1, "letterFill");
+        }, 350);
+      }
+  
+      return;
+    }
+  
+    const randomIndex = Math.floor(Math.random() * lines.length);
+setRevealedIndexes([randomIndex]);
   }, [caseIndex, pageIndex]);
   const resetAccessCard = () => {
     zoneOffsetRef.current = 0;
@@ -608,10 +624,14 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
     setPendingLineIndex(null);
   
     if (nextRevealedIndexes.length < lines.length) return;
+    if (page === "report") {
+      setReportUnlocked(true);
+    }
   
     window.setTimeout(() => {
       if (pageIndex >= pageOrder.length - 1) {
         setCaseIndex((caseValue) => caseValue + 1);
+        setReportUnlocked(false);
         setPageIndex(0);
         setRevealedCount(0);
         setRevealedIndexes([]);
@@ -644,7 +664,7 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   
     setRecoverError("");
   };
-  const startUnlockInfo = (lineIndex?: number) => {
+  const startUnlockInfo = (lineIndex?: number, forcedMode?: UnlockMode) => {
     if (paused || page === "locked" || allRevealed) return;
   
     const targetIndex =
@@ -674,9 +694,12 @@ setPendingLineIndex(targetIndex);
     ? availableModes.filter((mode) => mode !== lastUnlockMode)
     : availableModes;
 
-const selectedMode = modePool[Math.floor(Math.random() * modePool.length)];
-
-setLastUnlockMode(selectedMode);
+    const selectedMode =
+    forcedMode && availableModes.includes(forcedMode)
+      ? forcedMode
+      : modePool[Math.floor(Math.random() * modePool.length)];
+  
+  setLastUnlockMode(selectedMode);
   
     if (selectedMode === "falseInsertion") {
       setUnlockMode("falseInsertion");
@@ -869,10 +892,13 @@ setLastUnlockMode(null);
   };
 
   const pageProgress = Math.round((pageIndex / (pageOrder.length - 1)) * 100);
-  const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
+const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
+const pageStory = getPageStory(page);
   const revealedTextList = lines.filter((_, index) =>
   revealedIndexes.includes(index)
 );
+const reportDetailsReady =
+  page === "report" ? allRevealed && !unlockMode : reportUnlocked;
   const previewAnswer = (() => {
     let slotIndex = 0;
   
@@ -946,15 +972,39 @@ setLastUnlockMode(null);
     })}
   </div>
 </div>
-<div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-3">
-  <div className="mb-1 font-game font-black text-yellow-300 text-[clamp(12px,3vw,14px)]">
+{(page === "locked" || page === "report" || reportUnlocked) && (
+  <div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-3">
+  <div className="font-game font-black text-yellow-300 text-[clamp(12px,3vw,14px)]">
     รายละเอียดเหตุการณ์
   </div>
 
-  <div className="font-game font-bold leading-relaxed text-white text-[clamp(15px,4vw,19px)]">
-    {currentCase.subtitle}
+  {reportDetailsReady ? (
+    <div
+    className="
+      mt-2
+      rounded-xl
+      bg-white
+      px-3
+      py-3
+      font-game
+      font-black
+      leading-snug
+      text-slate-950
+      text-[clamp(14px,3.8vw,18px)]
+    "
+  >
+    ✅{" "}
+    {currentCase.incidentReport
+      .map((line) => line.text)
+      .join("  ")}
   </div>
+  ) : (
+    <div className="mt-2 rounded-xl bg-black/35 px-3 py-3 font-game font-black text-white/35 text-[clamp(14px,3.8vw,18px)]">
+      ███████████████████
+    </div>
+  )}
 </div>
+)}
           {page === "locked" ? (
             <div className="mt-4 rounded-[24px] border border-white/10 bg-slate-900/90 p-3 text-center">
               <div className="font-black text-yellow-300 text-[clamp(24px,6vw,32px)]">
@@ -1140,15 +1190,17 @@ setLastUnlockMode(null);
           ) : (
             <div className="mt-2 min-h-0 flex-1 rounded-[1.1rem] border border-white/10 bg-slate-950/90 p-3 shadow-xl">
               <div className="rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left">
-  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
-    {getPageStory(page).title}
-  </div>
-
-  <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
-  {getPageStory(page).body}
+              <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
+  {getPageStory(page).title}
 </div>
 
-{revealedTextList.length > 0 && !unlockMode && (
+{page !== "report" && (
+  <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
+    {getPageStory(page).body}
+  </div>
+)}
+
+{revealedTextList.length > 0 && !unlockMode && page !== "report" && !allRevealed && (
   <div className="mt-3 space-y-2">
     {revealedTextList.map((line, index) => (
       <div
@@ -1261,16 +1313,16 @@ setLastUnlockMode(null);
     </div>
 
     <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
-  ลากชิ้นส่วนประโยคให้กลับมาเป็นข้อมูลที่ถูกต้อง
+    ลากสลับตำแหน่ง หรือแตะ 2 ชิ้นเพื่อสลับกัน
 </p>
 
 
 <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
       <div className="mb-3 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
-        ลากชิ้นส่วนสลับตำแหน่ง
+      เรียงจากซ้ายไปขวา
       </div>
 
-      <div className="flex min-h-[120px] flex-col gap-3 rounded-2xl bg-white/5 p-3">
+      <div className="flex min-h-[96px] flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/5 p-2">
       {rebuildPieces.map((piece) => (
   <button
     key={piece.id}
@@ -1293,7 +1345,7 @@ setLastUnlockMode(null);
       tapSwapRebuildPiece(piece.id);
     }}
     className={[
-      "rounded-2xl px-4 py-3 font-black shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]",
+      "rounded-xl px-3 py-2 font-black leading-none shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]",
       piece.locked
         ? "border-2 border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(103,232,249,0.45)]"
         : draggingPieceId === piece.id
@@ -1368,7 +1420,11 @@ setLastUnlockMode(null);
     onClick={nextPage}
     className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
   >
-    {page === "lesson" ? "✅ CASE CLOSED / เคสต่อไป" : "เปิดหน้าถัดไป ▶"}
+    {page === "lesson"
+  ? "✅ CASE CLOSED / เคสต่อไป"
+  : page === "report"
+  ? "🔎 หาหลักฐาน"
+  : "เปิดหน้าถัดไป ▶"}
   </button>
 )}
             </div>
@@ -1406,7 +1462,7 @@ function getPageStory(page: CasePage) {
 
   if (page === "evidence") {
     return {
-      title: "🔎 ทีมตรวจพบอะไร",
+      title: "ทีมตรวจพบอะไร",
       body: "ข้อมูลใดบ้างที่ช่วยอธิบายเหตุการณ์นี้",
     };
   }
