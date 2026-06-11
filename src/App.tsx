@@ -16,7 +16,6 @@ import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
 type AppScreen = Screen | 'edit_profile';
-const isStageOpenByDate = () => true;
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [lineIdentity, setLineIdentity] = useState<LineIdentity | null>(null);
