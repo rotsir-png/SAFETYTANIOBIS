@@ -283,3 +283,44 @@ height: 0;
 .near-miss-shake {
   animation: nearMissShake 0.25s ease-in-out;
 }
+/* ===== STAGE 3 QUICK UX ===== */
+
+@keyframes stage3WrongShake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+  100% { transform: translateX(0); }
+}
+
+.stage3-wrong-shake {
+  animation: stage3WrongShake 0.28s ease-in-out;
+}
+
+.stage3-word-pop {
+  animation: cardSlideIn 0.18s cubic-bezier(.2, 1.4, .4, 1) both;
+}
+/* ===== SHARED ARCADE UI ===== */
+
+.arcade-text {
+  text-shadow: 0 2px 0 rgba(0,0,0,0.55);
+}
+
+.arcade-card {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 14px 28px rgba(0,0,0,0.35);
+}
+
+.arcade-panel {
+  background: rgba(2,6,23,0.92);
+  border: 2px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03);
+}
+
+.arcade-yellow-pill {
+  background: rgba(250,204,21,0.22);
+  border: 1px solid rgba(250,204,21,0.5);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.25);
+}

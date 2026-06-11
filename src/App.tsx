@@ -11,22 +11,11 @@ import ResultScreen from './screens/ResultScreen';
 import LeaderboardScreen from './screens/LeaderboardScreen';
 import Stage1SafetySwipe from './stages/Stage1SafetySwipe';
 import Stage2PPERush from './stages/Stage2PPERush';
-import Stage3TapHazard from './stages/Stage3TapHazard';
+import Stage3AccidentInvestigate from './stages/Stage3AccidentInvestigate';
 import EndlessMode from './stages/EndlessMode';
 import MenuBgm from './components/MenuBgm';
 import { savePlayer } from './lib/playerData';
 type AppScreen = Screen | 'edit_profile';
-const STAGE_UNLOCK_DATES: Record<number, string> = {
-  2: '2026-06-08T08:00:00+07:00',
-  3: '2026-06-11T08:00:00+07:00',
-};
-
-const isStageOpenByDate = (stage: number) => {
-  const unlockDate = STAGE_UNLOCK_DATES[stage];
-  if (!unlockDate) return true;
-
-  return new Date() >= new Date(unlockDate);
-};
 export default function App() {
   const [profile, setProfile] = useState<PlayerProfile | null>(null);
   const [lineIdentity, setLineIdentity] = useState<LineIdentity | null>(null);
@@ -140,7 +129,7 @@ useEffect(() => {
     const passScore =
   stage === 1 ? 300 :
   stage === 2 ? 400 :
-  stage === 3 ? 500 :
+  stage === 3 ? 5 :
   0;
   
   const passed = score >= passScore;
@@ -189,31 +178,24 @@ if (p) {
     }
   
     if (typeof result?.stage === 'number') {
-      if (result.stage >= 3) {
-        refreshProgress();
-        setScreen('campaign');
-        return;
-      }
-    
+      // TEMP LOCK: กันกดเอาใหม่แล้วกลับเข้า Stage 2/3
+  
       setScreen(`stage${result.stage}` as Screen);
     }
-  }, [result]);
+  }, [result, refreshProgress]);
 
   const handleNext = useCallback(() => {
-    if (typeof result?.stage === 'number') {
-      const next = result.stage + 1;
+    if (typeof result?.stage !== 'number') return;
   
-      // ตอนนี้เปิดถึง Stage 2 เท่านั้น
-      if (next >= 3) {
-        refreshProgress();
-        setScreen('campaign');
-        return;
-      }
-  
-      setCurrentStage(next);
-      setScreen(`stage${next}` as Screen);
+    if (result.stage >= 3) {
+      setScreen('leaderboard');
+      return;
     }
-  }, [result, refreshProgress]);
+  
+    const next = result.stage + 1;
+    setCurrentStage(next);
+    setScreen(`stage${next}` as Screen);
+  }, [result]);
 
   // Hidden dev reset: 5-tap on version text in TitleScreen
   const handleResetProfile = useCallback(() => {
@@ -384,14 +366,21 @@ if (p) {
       )}
 
 {screen === 'stage3' && (
-  <CampaignScreen
-    progress={progress}
-    onStage={(s) => {
-      setCurrentStage(s);
-      setScreen(`stage${s}` as Screen);
-    }}
-    onBack={() => setScreen('title')}
-  />
+  <Stage3AccidentInvestigate
+  key={`s3-${currentStage}`}
+  onExit={() => setScreen('campaign')}
+  onClear={(score) => handleStageComplete(score, 3)}
+  onFail={() => {
+    setResult({
+      score: 0,
+      stage: 3,
+      passed: false,
+      passScore: 5,
+    });
+    setCurrentStage(3);
+    setScreen('result');
+  }}
+/>
 )}
 
 
