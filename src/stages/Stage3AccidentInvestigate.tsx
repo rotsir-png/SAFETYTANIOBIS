@@ -16,7 +16,7 @@ type CasePage =
   | "lesson";
 
 type AccessPhase = "insert" | "swipe" | "miss" | "granted";
-type UnlockMode = "letterFill" | "fileScramble" | "falseInsertion";
+type UnlockMode = "letterFill" | "fileScramble";
 
 type RecoverToken = {
   id: string;
@@ -35,11 +35,6 @@ type RebuildPiece = {
   id: string;
   text: string;
   locked?: boolean;
-};
-type FalseInsertionItem = {
-  id: string;
-  text: string;
-  fake: boolean;
 };
 const pageOrder: CasePage[] = [
   "locked",
@@ -185,49 +180,6 @@ const unlockedParts = cleanParts
 function canFileScramble(line: Stage3CaseLine) {
   return splitLineForScramble(line.text, line.keywords).length >= 2;
 }
-function canFalseInsertion(line: Stage3CaseLine) {
-  return line.keywords.filter((k) => k.trim()).length >= 2;
-}
-
-function makeFalseInsertionPuzzle(line: Stage3CaseLine): FalseInsertionItem[] {
-  const realItems = line.keywords.map((k) => k.trim()).filter(Boolean);
-
-  const allKeywords = stage3Cases
-    .flatMap((item) => [
-      ...item.incidentReport,
-      ...item.evidence,
-      ...item.rootCause,
-      ...item.prevention,
-      item.lesson,
-    ])
-    .flatMap((item) => item.keywords)
-    .map((k) => k.trim())
-    .filter(Boolean);
-
-  const decoys = shuffle(
-    Array.from(new Set(allKeywords))
-      .filter((k) => !realItems.includes(k))
-      .filter((k) => !line.text.includes(k))
-  );
-
-  const fakeCount =
-    line.text.length >= 45 || realItems.length >= 4 ? 2 : 1;
-
-  const fakeItems = decoys.slice(0, fakeCount);
-
-  return shuffle([
-    ...realItems.map((text, index) => ({
-      id: `real-${text}-${index}-${Math.random()}`,
-      text,
-      fake: false,
-    })),
-    ...fakeItems.map((text, index) => ({
-      id: `fake-${text}-${index}-${Math.random()}`,
-      text,
-      fake: true,
-    })),
-  ]);
-}
 function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
   const answer =
     line.keywords.length > 0
@@ -305,7 +257,7 @@ function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
   const decoys = shuffle([...tokens, ...fallbackDecoys])
     .filter((token) => token.trim() !== "")
     .filter((token) => !missingLetters.includes(token))
-    .slice(0, Math.max(0, 10 - missingLetters.length));
+    .slice(0, Math.max(0, 6 - missingLetters.length));
 
   const choiceLetters = shuffle([...missingLetters, ...decoys]);
 
@@ -322,6 +274,25 @@ function makeRecoverPuzzle(line: Stage3CaseLine): RecoverPuzzle {
     missingLetters,
     choices,
   };
+}
+function makeReportLine(currentCase: { incidentReport: Stage3CaseLine[] }) {
+  return {
+    text: currentCase.incidentReport.map((line) => line.text).join(" "),
+    keywords: currentCase.incidentReport.flatMap((line) => line.keywords),
+  };
+}
+function makePhaseLine(lines: Stage3CaseLine[]) {
+  return {
+    text: lines.map((line) => line.text).join(" "),
+    keywords: lines.flatMap((line) => line.keywords),
+  };
+}
+function getUnlockButtonText(page: CasePage) {
+  if (page === "evidence") return "เปิดหลักฐานที่ซ่อนอยู่";
+  if (page === "rootCause") return "สาเหตุของเหตุการณ์ที่เกิดขึ้น";
+  if (page === "prevention") return "มาตรการป้องกันเบื้องต้น";
+  if (page === "lesson") return "บทเรียน";
+  return "เปิดข้อมูล";
 }
 export default function Stage3AccidentInvestigate({ onExit }: Props) {
   const { paused, togglePause, PauseOverlay } = usePause({
@@ -362,7 +333,6 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   const [recoverError, setRecoverError] = useState("");
   const [rebuildPieces, setRebuildPieces] = useState<RebuildPiece[]>([]);
   const [rebuildCorrectOrder, setRebuildCorrectOrder] = useState<string[]>([]);
-  const [falseInsertionItems, setFalseInsertionItems] = useState<FalseInsertionItem[]>([]);
   const [draggingPieceId, setDraggingPieceId] = useState<string | null>(null);
   const [selectedPieceId, setSelectedPieceId] = useState<string | null>(null);
 
@@ -438,7 +408,7 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
   }, [accessPhase, swipeZone]);
 
   const currentCase = stage3Cases[caseIndex % stage3Cases.length];
-  const page = pageOrder[pageIndex];
+  const page = pageOrder[Math.min(pageIndex, pageOrder.length - 1)];
 
   const getLines = (): Stage3CaseLine[] => {
     if (page === "report") return currentCase.incidentReport;
@@ -459,19 +429,16 @@ const [lastUnlockMode, setLastUnlockMode] = useState<UnlockMode | null>(null);
     setRecoverError("");
   
     if (page === "report") {
-      setRevealedIndexes([0]);
-  
-      if (lines.length > 1) {
-        window.setTimeout(() => {
-          startUnlockInfo(1, "letterFill");
-        }, 350);
-      }
-  
+      setRevealedIndexes([]);
+    
+      window.setTimeout(() => {
+        startUnlockInfo(0, "letterFill");
+      }, 350);
+    
       return;
     }
-  
-    const randomIndex = Math.floor(Math.random() * lines.length);
-setRevealedIndexes([randomIndex]);
+    
+    setRevealedIndexes([]);
   }, [caseIndex, pageIndex]);
   const resetAccessCard = () => {
     zoneOffsetRef.current = 0;
@@ -616,17 +583,15 @@ setRevealedIndexes([randomIndex]);
     const targetIndex = pendingLineIndex;
     if (targetIndex === null) return;
   
-    const nextRevealedIndexes = Array.from(
-      new Set([...revealedIndexes, targetIndex])
-    );
-  
-    setRevealedIndexes(nextRevealedIndexes);
-    setPendingLineIndex(null);
-  
-    if (nextRevealedIndexes.length < lines.length) return;
-    if (page === "report") {
-      setReportUnlocked(true);
-    }
+    const nextRevealedIndexes = lines.map((_, index) => index);
+
+setRevealedIndexes(nextRevealedIndexes);
+setPendingLineIndex(null);
+
+if (page === "report") {
+  setReportUnlocked(true);
+  return;
+}
   
     window.setTimeout(() => {
       if (pageIndex >= pageOrder.length - 1) {
@@ -660,8 +625,6 @@ setRevealedIndexes([randomIndex]);
     setDraggingPieceId(null);
     setSelectedPieceId(null);
   
-    setFalseInsertionItems([]);
-  
     setRecoverError("");
   };
   const startUnlockInfo = (lineIndex?: number, forcedMode?: UnlockMode) => {
@@ -674,7 +637,11 @@ setRevealedIndexes([randomIndex]);
 
 if (targetIndex < 0) return;
 
-const targetLine = lines[targetIndex];
+const targetLine =
+  page === "report"
+    ? makeReportLine(currentCase)
+    : makePhaseLine(lines);
+
 if (!targetLine) return;
 
 setPendingLineIndex(targetIndex);
@@ -683,10 +650,6 @@ setPendingLineIndex(targetIndex);
   
     if (canFileScramble(targetLine)) {
       availableModes.push("fileScramble");
-    }
-  
-    if (canFalseInsertion(targetLine)) {
-      availableModes.push("falseInsertion");
     }
   
     const modePool =
@@ -700,13 +663,6 @@ setPendingLineIndex(targetIndex);
       : modePool[Math.floor(Math.random() * modePool.length)];
   
   setLastUnlockMode(selectedMode);
-  
-    if (selectedMode === "falseInsertion") {
-      setUnlockMode("falseInsertion");
-      setFalseInsertionItems(makeFalseInsertionPuzzle(targetLine));
-      setRecoverError("");
-      return;
-    }
   
     if (selectedMode === "letterFill") {
       const puzzle = makeRecoverPuzzle(targetLine);
@@ -837,29 +793,6 @@ setPendingLineIndex(targetIndex);
     setSelectedPieceId(null);
     setRecoverError("");
   };
-  const selectFalseInsertionItem = (item: FalseInsertionItem) => {
-    if (paused || unlockMode !== "falseInsertion") return;
-  
-    if (!item.fake) {
-      setScore((s) => Math.max(0, s - 5));
-      showStageFeedback("⚠️ REAL DATA -5");
-      setRecoverError("❌ อันนี้เป็นข้อมูลจริงของเคส");
-      return;
-    }
-  
-    const nextItems = falseInsertionItems.filter((x) => x.id !== item.id);
-    setFalseInsertionItems(nextItems);
-    setRecoverError("");
-  
-    const stillHasFake = nextItems.some((x) => x.fake);
-    if (stillHasFake) return;
-  
-    showStageFeedback("✅ CHECKED +25");
-
-    resetUnlockState();
-
-    completeUnlock();
-  };
   const nextPage = () => {
     if (paused) return;
     if (page === "locked") return;
@@ -878,11 +811,13 @@ setPendingLineIndex(targetIndex);
       return;
     }
   
-    if (pageIndex >= pageOrder.length - 1) {
+    if (page === "lesson" || pageIndex >= pageOrder.length - 1) {
       setCaseIndex((v) => v + 1);
-setPageIndex(0);
-setRevealedCount(0);
-setLastUnlockMode(null);
+      setPageIndex(0);
+      setRevealedCount(0);
+      setRevealedIndexes([]);
+      setReportUnlocked(false);
+      setLastUnlockMode(null);
       resetAccessCard();
       return;
     }
@@ -891,9 +826,7 @@ setLastUnlockMode(null);
     setRevealedCount(0);
   };
 
-  const pageProgress = Math.round((pageIndex / (pageOrder.length - 1)) * 100);
-const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
-const pageStory = getPageStory(page);
+  const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
   const revealedTextList = lines.filter((_, index) =>
   revealedIndexes.includes(index)
 );
@@ -973,25 +906,25 @@ const reportDetailsReady =
   </div>
 </div>
 {(page === "locked" || page === "report" || reportUnlocked) && (
-  <div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-3">
-  <div className="font-game font-black text-yellow-300 text-[clamp(12px,3vw,14px)]">
+  <div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-2">
+  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
     รายละเอียดเหตุการณ์
   </div>
 
   {reportDetailsReady ? (
     <div
     className="
-      mt-2
-      rounded-xl
-      bg-white
-      px-3
-      py-3
-      font-game
-      font-black
-      leading-snug
-      text-slate-950
-      text-[clamp(14px,3.8vw,18px)]
-    "
+  mt-2
+  rounded-xl
+  bg-white
+  px-3
+  py-3
+  font-game
+  font-black
+  leading-tight
+  text-slate-950
+  text-[clamp(17px,4.6vw,22px)]
+"
   >
     ✅{" "}
     {currentCase.incidentReport
@@ -1188,11 +1121,21 @@ const reportDetailsReady =
               </div>
             </div>
           ) : (
-            <div className="mt-2 min-h-0 flex-1 rounded-[1.1rem] border border-white/10 bg-slate-950/90 p-3 shadow-xl">
-              <div className="rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left">
-              <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
-  {getPageStory(page).title}
-</div>
+            <div className="mt-2 flex min-h-0 flex-1 flex-col rounded-[1.1rem] border border-white/10 bg-slate-950/90 p-3 shadow-xl">
+              <div
+  className={
+    page === "report"
+      ? "px-1 py-0 text-left"
+      : page === "lesson"
+      ? "rounded-2xl bg-black/35 border border-white/10 px-3 py-2 text-left"
+      : "rounded-2xl bg-black/35 border border-white/10 px-3 py-3 text-left"
+  }
+>
+{page !== "report" && (
+  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
+    {getPageStory(page).title}
+  </div>
+)}
 
 {page !== "report" && (
   <div className="mt-1 font-game font-bold text-white/85 leading-snug text-[clamp(14px,3.8vw,17px)]">
@@ -1200,60 +1143,61 @@ const reportDetailsReady =
   </div>
 )}
 
-{revealedTextList.length > 0 && !unlockMode && page !== "report" && !allRevealed && (
+{revealedTextList.length > 0 && !unlockMode && page !== "report" && page !== "lesson" && (
   <div className="mt-3 space-y-2">
     {revealedTextList.map((line, index) => (
       <div
-        key={`${line.text}-${index}`}
-        className="rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(15px,4vw,19px)]"
-      >
-        ✅ {line.text}
-      </div>
+      key={`${line.text}-${index}`}
+      className="rounded-xl bg-white px-3 py-3 font-game font-black leading-snug text-slate-950 text-[clamp(15px,4vw,19px)]"
+    >
+      <span className="mr-2 text-yellow-500">
+        {index + 1}.
+      </span>
+    
+      {line.text}
+    </div>
     ))}
   </div>
 )}
 </div>
 
               {unlockMode === "letterFill" && (
- <div className="mt-2 rounded-[16px] border border-white/10 bg-black/35 p-2 text-center">
-    <div className="font-game font-black text-white/70 text-[clamp(15px,4vw,18px)]">
-  เติมตัวอักษรที่หายไป
-</div>
+ <div className="mt-2 flex min-h-0 flex-1 flex-col text-center">
 
-    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
+<div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-950 p-1">
 
-      <div className="rounded-xl bg-white/10 p-3 font-black leading-snug text-white text-[clamp(16px,4.3vw,21px)]">
+<div className="max-h-[40dvh] overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-tight text-white text-[clamp(21px,5.6vw,28px)]">
         {recoverBeforeText}
-        <span className="mx-1 rounded-lg bg-yellow-300 px-2 py-1 font-black tracking-widest text-slate-950">
-          {previewAnswer || recoverMaskedAnswer}
-        </span>
+        <span className="mx-0.5 inline rounded-md bg-yellow-300 px-1 py-0 align-baseline font-black tracking-normal text-slate-950">
+  {previewAnswer || recoverMaskedAnswer}
+</span>
         {recoverAfterText}
       </div>
 
-      <div className="mt-3 flex min-h-[48px] flex-wrap items-center justify-center gap-2 rounded-xl bg-white/5 p-2">
-        {recoverSelected.length === 0 ? (
-          <div className="font-bold text-white/35 text-[clamp(13px,3.5vw,16px)]">
-            แตะตัวอักษรด้านล่างเพื่อเติมช่องว่าง
-          </div>
-        ) : (
-          recoverSelected.map((token) => (
-            <button
-              key={token.id}
-              onClick={() => removeRecoverToken(token)}
-              className="rounded-xl bg-green-400 px-3 py-2 font-game font-black text-slate-950 active:scale-95 text-[clamp(15px,4vw,19px)]"
-            >
-              {token.text}
-            </button>
-          ))
-        )}
-      </div>
+      <div className="mt-1 flex min-h-[44px] flex-wrap items-center justify-center gap-2 rounded-xl bg-white/5 p-2">
+  {recoverSelected.length === 0 ? (
+    <div className="font-bold text-white/35 text-[clamp(13px,3.5vw,16px)]">
+      แตะเพื่อเอาตัวอักษรกลับ
+    </div>
+  ) : (
+    recoverSelected.map((token) => (
+      <button
+        key={token.id}
+        onClick={() => removeRecoverToken(token)}
+        className="rounded-xl bg-green-400 px-3 py-2 font-game font-black leading-none text-slate-950 active:scale-95 text-[clamp(19px,5vw,26px)]"
+      >
+        {token.text}
+      </button>
+    ))
+  )}
+</div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-        {recoverChoices.map((token) => (
+      <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 overflow-hidden">
+      {recoverChoices.map((token) => (
           <button
             key={token.id}
             onClick={() => selectRecoverToken(token)}
-            className="rounded-xl bg-yellow-300 px-3 py-2 font-game font-black text-slate-950 shadow active:scale-95 text-[clamp(15px,4vw,19px)]"
+            className="rounded-xl bg-yellow-300 px-4 py-2.5 font-game font-black leading-none text-slate-950 shadow active:scale-95 text-[clamp(21px,5.6vw,28px)]"
           >
             {token.text}
           </button>
@@ -1269,60 +1213,29 @@ const reportDetailsReady =
 
     <button
       onClick={submitRecoverPuzzle}
-      className="mt-3 w-full rounded-xl bg-green-500 py-3 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]"
+      className="mt-2 shrink-0 w-full rounded-xl bg-green-500 py-2.5 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]"
     >
       ✅ ส่งคำตอบ
     </button>
   </div>
 )}
-{unlockMode === "falseInsertion" && (
-  <div className="mt-4 rounded-[24px] border border-orange-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(251,146,60,0.22)]">
-    <div className="font-game font-black text-orange-300 text-[clamp(20px,5vw,28px)]">
-    ลบข้อมูลที่ไม่เกี่ยวข้อง
-    </div>
-
-    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
-      แตะข้อมูลที่ไม่เกี่ยวกับประโยคนี้ออก
-    </p>
-
-    <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
-      <div className="flex min-h-[120px] flex-wrap content-start items-start justify-start gap-2 rounded-2xl bg-white/5 p-3">
-        {falseInsertionItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => selectFalseInsertionItem(item)}
-            className="rounded-2xl bg-yellow-300 px-3 py-3 text-left font-black leading-snug text-slate-950 shadow-lg active:scale-95 text-[clamp(15px,4vw,20px)]"
-          >
-            {item.text}
-          </button>
-        ))}
-      </div>
-    </div>
-
-    {recoverError && (
-      <div className="mt-3 rounded-xl bg-red-600 px-3 py-2 font-black text-white text-[clamp(13px,3.5vw,16px)]">
-        {recoverError}
-      </div>
-    )}
-  </div>
-)}
 {unlockMode === "fileScramble" && (
-  <div className="mt-4 rounded-[24px] border border-purple-300/30 bg-black/60 p-4 text-center shadow-[0_0_24px_rgba(216,180,254,0.22)]">
-    <div className="font-game font-black text-purple-300 text-[clamp(20px,5vw,28px)]">
+  <div className="mt-2 rounded-[18px] bg-black/45 p-2 text-center">
+    <div className="font-game font-black leading-none text-purple-300 text-[clamp(19px,5vw,27px)]">
     เรียงข้อมูลให้ถูกต้อง
     </div>
 
-    <p className="mt-2 font-bold text-white/70 text-[clamp(13px,3.6vw,16px)]">
+    <p className="mt-1 font-bold leading-tight text-white/60 text-[clamp(12px,3.3vw,15px)]">
     ลากสลับตำแหน่ง หรือแตะ 2 ชิ้นเพื่อสลับกัน
 </p>
 
 
-<div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-3">
-      <div className="mb-3 font-black text-white/50 text-[clamp(12px,3.2vw,15px)]">
+<div className="mt-1 p-0">
+<div className="mb-1 font-black text-white/45 text-[clamp(11px,3vw,14px)]">
       เรียงจากซ้ายไปขวา
       </div>
 
-      <div className="flex min-h-[96px] flex-wrap items-center justify-center gap-2 rounded-2xl bg-white/5 p-2">
+      <div className="flex min-h-[88px] flex-wrap items-center justify-center gap-1.5 rounded-2xl bg-white/5 p-1.5">
       {rebuildPieces.map((piece) => (
   <button
     key={piece.id}
@@ -1345,7 +1258,7 @@ const reportDetailsReady =
       tapSwapRebuildPiece(piece.id);
     }}
     className={[
-      "rounded-xl px-3 py-2 font-black leading-none shadow-lg active:scale-95 text-[clamp(16px,4.5vw,22px)]",
+      "rounded-xl px-3.5 py-2.5 font-black leading-none shadow-lg active:scale-95 text-[clamp(19px,5vw,26px)]",
       piece.locked
         ? "border-2 border-cyan-300 bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(103,232,249,0.45)]"
         : draggingPieceId === piece.id
@@ -1370,14 +1283,14 @@ const reportDetailsReady =
 
     <button
       onClick={submitRebuildPuzzle}
-      className="mt-4 w-full rounded-2xl bg-purple-400 py-4 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,27px)]"
+      className="mt-2 w-full rounded-xl bg-purple-400 py-2.5 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(17px,4.5vw,23px)]"
     >
-      📄 REBUILD FILE / กู้ประโยค
+      📄 ยืนยันหลักฐาน
     </button>
   </div>
 )}
 
-<div className={unlockMode ? "hidden" : "mt-4 space-y-3"}>
+<div className={unlockMode || page === "report" ? "hidden" : "mt-4 space-y-3"}>
 {lines
   .filter((_, index) => !revealedIndexes.includes(index) && !unlockMode)
   .map((line, index) => {
@@ -1389,7 +1302,7 @@ const reportDetailsReady =
     key={`${line.text}-${originalIndex}`}
       onClick={() => {
         if (revealed || unlockMode) return;
-        startUnlockInfo(originalIndex);
+        startUnlockInfo(0);
       }}
       disabled={revealed || !!unlockMode}
       className={[
@@ -1406,7 +1319,7 @@ const reportDetailsReady =
   <span className="text-[22px]">🔒</span>
 
   <span className="font-game font-black">
-    แตะเพื่อเปิดข้อมูล
+  {getUnlockButtonText(page)}
   </span>
 </div>
       )}
@@ -1414,16 +1327,28 @@ const reportDetailsReady =
   );
 })}
               </div>
-
+              {page === "lesson" && !unlockMode && (
+  <div className="mt-0 rounded-2xl bg-green-500 px-4 py-4">
+    <div className="font-game font-black leading-snug text-white text-[clamp(18px,4.8vw,24px)]">
+      {currentCase.lesson.text}
+    </div>
+  </div>
+)}
               {allRevealed && !unlockMode && (
   <button
     onClick={nextPage}
     className="mt-5 w-full rounded-2xl bg-green-600 py-4 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(20px,5.5vw,29px)]"
   >
     {page === "lesson"
-  ? "✅ CASE CLOSED / เคสต่อไป"
+  ? "🔒 ปิดเคส / เคสต่อไป"
   : page === "report"
-  ? "🔎 หาหลักฐาน"
+  ? "หาหลักฐานเพิ่มเติม"
+  : page === "evidence"
+  ? "วิเคราะห์สาเหตุ"
+  : page === "rootCause"
+  ? "ดูวิธีป้องกัน"
+  : page === "prevention"
+  ? "สรุปบทเรียน"
   : "เปิดหน้าถัดไป ▶"}
   </button>
 )}
@@ -1462,22 +1387,22 @@ function getPageStory(page: CasePage) {
 
   if (page === "evidence") {
     return {
-      title: "ทีมตรวจพบอะไร",
-      body: "ข้อมูลใดบ้างที่ช่วยอธิบายเหตุการณ์นี้",
+      title: "หลักฐานที่พบ",
+      body: "",
     };
   }
 
   if (page === "rootCause") {
     return {
-      title: "❓ ทำไมถึงเกิดเหตุการณ์นี้",
-      body: "ลองหาสาเหตุที่ทำให้ความเสี่ยงนี้เกิดขึ้น",
+      title: "ทำไมถึงเกิดเหตุการณ์นี้",
+      body: "",
     };
   }
 
   if (page === "prevention") {
     return {
-      title: "ถ้าคุณอยู่หน้างาน",
-      body: "คุณควรทำอะไรทันทีเมื่อพบเหตุการณ์ลักษณะนี้",
+      title: "หากอยู่หน้างานให้ดำเนินการ",
+      body: "",
     };
   }
 
