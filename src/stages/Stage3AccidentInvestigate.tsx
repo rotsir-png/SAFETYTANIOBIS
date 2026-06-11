@@ -589,7 +589,7 @@ const reportDetailsReady =
   leading-tight
   text-slate-950
   shadow-lg
-  text-[clamp(17px,4.6vw,22px)]
+  text-[clamp(20px,5.6vw,28px)]
 "
   >
     ✅{" "}
@@ -809,10 +809,10 @@ const reportDetailsReady =
 
 <div className="min-h-0 flex-1 overflow-hidden rounded-xl bg-slate-950 p-1">
 
-<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-2 py-2 font-black leading-tight text-white text-[clamp(19px,5vw,25px)]">
+<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-snug text-white text-[clamp(20px,5vw,26px)]">
 <div
   className={[
-    "rounded-xl bg-black/25 px-3 py-3 text-left leading-snug",
+    "rounded-xl bg-black/25 px-4 py-4 text-left leading-snug",
     wrongShake ? "stage3-wrong-shake" : "",
   ].join(" ")}
 >
@@ -845,7 +845,7 @@ const reportDetailsReady =
         <button
           key={token.id}
           onClick={() => removeRecoverToken(token)}
-          className="rounded-lg bg-green-400 px-2 py-1 font-game font-black text-slate-950 text-[clamp(14px,3.8vw,18px)]"
+          className="rounded-xl bg-green-400 px-3 py-2 font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(20px,5.5vw,28px)]"
         >
           {token.text}
         </button>
@@ -854,12 +854,12 @@ const reportDetailsReady =
   )}
 </div>
 
-      <div className="mt-1 flex flex-wrap items-center justify-center gap-1.5 overflow-hidden">
+<div className="mt-1 flex max-h-[18dvh] flex-wrap items-center justify-center gap-1.5 overflow-y-auto px-1">
       {recoverChoices.map((token) => (
           <button
             key={token.id}
             onClick={() => selectRecoverToken(token)}
-            className="rounded-xl bg-yellow-300 px-3 py-2 font-game font-black leading-none text-slate-950 shadow active:scale-95 text-[clamp(18px,5vw,24px)]"
+            className="max-w-full rounded-xl bg-yellow-300 px-3 py-2 font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(18px,5vw,23px)]"
           >
             {token.text}
           </button>
@@ -875,7 +875,11 @@ const reportDetailsReady =
 
     <button
       onClick={submitRecoverPuzzle}
-      className="mt-1 shrink-0 w-full rounded-xl bg-green-500 py-2 font-game font-black text-slate-950 shadow-lg active:scale-95 text-[clamp(15px,4vw,20px)]"
+      className="mt-1 shrink-0 w-full rounded-xl bg-green-500 py-3 font-game font-black text-white shadow-lg active:scale-95"
+style={{
+  fontSize: "clamp(1.25rem,5.7vw,1.75rem)",
+  textShadow: "0 3px 0 rgba(0,0,0,0.55)",
+}}
     >
       ✅ ส่งคำตอบ
     </button>
