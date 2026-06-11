@@ -571,7 +571,7 @@ const reportDetailsReady =
   </div>
 </div>
 {(page === "locked" || page === "report" || reportUnlocked) && (
-  <div className="arcade-card mt-2 rounded-2xl border-l-4 border-yellow-300 px-3 py-2">
+  <div className="arcade-card mt-1 rounded-2xl border-l-4 border-yellow-300 px-3 py-1.5">
   <div className="arcade-text font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
     รายละเอียดเหตุการณ์
   </div>
@@ -583,13 +583,14 @@ const reportDetailsReady =
   rounded-xl
   bg-white
   px-3
-  py-3
+  py-2
   font-game
   font-black
   leading-tight
   text-slate-950
   shadow-lg
-  text-[clamp(20px,5.6vw,28px)]
+  text-[clamp(17px,4.6vw,22px)]
+  leading-snug
 "
   >
     ✅{" "}
@@ -762,7 +763,7 @@ const reportDetailsReady =
               </div>
             </div>
           ) : (
-            <div className="arcade-panel mt-2 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-3 overflow-hidden">
+            <div className="arcade-panel mt-1 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-2 overflow-hidden">
               <div
   className={
     page === "report"
@@ -778,7 +779,7 @@ const reportDetailsReady =
   <div
     className={
       unlockMode
-      ? "arcade-text font-game font-black text-yellow-300 text-center leading-tight text-[clamp(15px,4vw,20px)]"
+  ? "arcade-text font-game font-black text-yellow-300 text-center leading-tight text-[clamp(14px,3.6vw,18px)]"
       : "arcade-text font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]"
     }
   >
@@ -809,10 +810,10 @@ const reportDetailsReady =
 
 <div className="min-h-0 flex-1 overflow-y-auto rounded-xl bg-slate-950 p-1 pb-24">
 
-<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-snug text-white text-[clamp(20px,5vw,26px)]">
+<div className="max-h-[30dvh] space-y-1.5 overflow-y-auto rounded-xl bg-white/10 px-3 py-3 font-black leading-snug text-white text-[clamp(18px,4.5vw,23px)]">
 <div
   className={[
-    "rounded-xl bg-black/25 px-4 py-4 text-left leading-snug",
+    "rounded-xl bg-black/25 px-3 py-3 text-left leading-snug",
     wrongShake ? "stage3-wrong-shake" : "",
   ].join(" ")}
 >
@@ -833,33 +834,31 @@ const reportDetailsReady =
   })}
 </div>
 </div>
-
-<div className="mt-1 min-h-[44px] rounded-xl bg-white/5 px-2 py-2">
-  {recoverSelected.length === 0 ? (
-    <div className="text-center font-game font-black text-white/45 text-[clamp(12px,3vw,14px)]">
-      แตะคำด้านล่างเพื่อเติมช่องว่าง
+{recoverSelected.length > 0 && (
+  <>
+    <div className="mb-1 text-center font-game font-black text-green-300 text-[clamp(13px,3.5vw,16px)]">
+    ✕ แตะเพื่อนำคำออก
     </div>
-  ) : (
-    <div className="flex flex-wrap justify-center gap-2">
+
+    <div className="mb-2 flex flex-wrap justify-center gap-2">
       {recoverSelected.map((token) => (
         <button
           key={token.id}
           onClick={() => removeRecoverToken(token)}
-          className="rounded-xl bg-green-400 px-3 py-2 font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(20px,5.5vw,28px)]"
+          className="rounded-full bg-green-400 px-3 py-1.5 font-game font-black text-slate-950 shadow active:scale-95 text-[clamp(16px,4.3vw,20px)]"
         >
           {token.text}
         </button>
       ))}
     </div>
-  )}
-</div>
-
+  </>
+)}
 <div className="mt-1 flex max-h-[22dvh] flex-wrap items-center justify-center gap-1.5 overflow-y-auto px-1 pb-2">
       {recoverChoices.map((token) => (
           <button
             key={token.id}
             onClick={() => selectRecoverToken(token)}
-            className="max-w-full rounded-xl bg-yellow-300 px-3 py-2 font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(18px,5vw,23px)]"
+            className="max-w-full rounded-xl bg-yellow-300 px-4 py-2.5 font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(18px,5vw,23px)]"
           >
             {token.text}
           </button>
