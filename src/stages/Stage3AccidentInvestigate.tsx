@@ -19,7 +19,7 @@ type CasePage =
   | "prevention"
   | "lesson";
 
-type AccessPhase = "insert" | "swipe" | "miss" | "granted";
+  type AccessPhase = "insert" | "granted";
 type UnlockMode = "letterFill";
 
 type RecoverToken = {
@@ -99,6 +99,8 @@ const [pendingLineIndex, setPendingLineIndex] = useState<number | null>(null);
 const [phaseFilledWords, setPhaseFilledWords] = useState<string[]>([]);
 const [wrongShake, setWrongShake] = useState(false);
 const [recoverError, setRecoverError] = useState("");
+const [screenShake, setScreenShake] = useState(false);
+const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
 
   const zoneOffsetRef = useRef(0);
   const zoneCenterPxRef = useRef(0);
@@ -195,11 +197,6 @@ const [recoverError, setRecoverError] = useState("");
   
     if (page === "report") {
       setRevealedIndexes([]);
-    
-      window.setTimeout(() => {
-        startUnlockInfo(0);
-      }, 350);
-    
       return;
     }
     
@@ -264,13 +261,14 @@ const [recoverError, setRecoverError] = useState("");
       setScanMessage("✅ INSERTED! กำลังอ่านบัตร...");
 
       window.setTimeout(() => {
-        setAccessPhase("swipe");
-        setInserted(false);
-        setCardY(0);
-        setCardX(0);
-        cardXRef.current = 0;
-        setScanMessage("STEP 2: แตะบัตร แล้วรูดให้เส้นแดงตรงช่องเขียว");
-      }, 350);
+        setAccessPhase("granted");
+        setScanMessage("✅ ACCESS GRANTED");
+      
+        window.setTimeout(() => {
+          setPageIndex(1);
+          resetAccessCard();
+        }, 450);
+      }, 250);
     }
   };
 
@@ -442,7 +440,11 @@ setPhaseFilledWords([]);
     if (!isCorrectOrder) {
       setRecoverError("❌ คำยังไม่ตรงช่อง ลองเรียงใหม่อีกครั้ง");
       triggerWrongShake();
-  
+      setFlashType("wrong");
+      setScreenShake(true);
+      
+      window.setTimeout(() => setFlashType(null), 180);
+      window.setTimeout(() => setScreenShake(false), 260);
       const selectedBack = [...recoverSelected];
   
       setRecoverSelected([]);
@@ -452,7 +454,10 @@ setPhaseFilledWords([]);
       return;
     }
   
-    showStageFeedback("✅ เข้าใจแล้ว +25");
+    setFlashType("correct");
+window.setTimeout(() => setFlashType(null), 180);
+
+showStageFeedback("✅+25");
   
     resetUnlockState();
     completeUnlock();
@@ -487,7 +492,7 @@ setPhaseFilledWords([]);
     setPageIndex((v) => v + 1);
   };
 
-  const isSwipeMode = accessPhase === "swipe" || accessPhase === "granted";
+  const isSwipeMode = false;
   const revealedTextList = lines.filter((_, index) =>
   revealedIndexes.includes(index)
 );
@@ -495,7 +500,20 @@ const reportDetailsReady =
   page === "report" ? allRevealed && !unlockMode : reportUnlocked;
   let globalFillIndex = 0;
   return (
-    <div className="h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white">
+    <div
+  className={[
+    "h-[100dvh] w-full overflow-hidden bg-gradient-to-b from-slate-800 to-slate-950 px-2 py-2 text-white",
+    screenShake ? "screen-shake" : "",
+  ].join(" ")}
+>
+{flashType && (
+  <div
+    className={[
+      "pointer-events-none fixed inset-0 z-[9997]",
+      flashType === "correct" ? "correct-overlay" : "wrong-overlay",
+    ].join(" ")}
+  />
+)}
       <div className="mx-auto flex h-full w-full max-w-[430px] flex-col">
       <div className="flex items-center justify-between px-1">
   <div className="min-w-0">
@@ -503,7 +521,7 @@ const reportDetailsReady =
       ด่าน 3
     </div>
 
-    <h1 className="font-game font-black leading-none text-white text-[clamp(21px,5.6vw,29px)]">
+    <h1 className="arcade-text font-game font-black leading-none text-white text-[clamp(21px,5.6vw,29px)]">
   ACCIDENT INVESTIGATION
 </h1>
   </div>
@@ -522,7 +540,7 @@ const reportDetailsReady =
   </div>
 </div>
 
-<div className="mt-2 rounded-2xl border border-white/10 bg-black/45 p-2">
+<div className="arcade-card mt-2 rounded-2xl px-3 py-2">
   <div className="mb-1 text-center font-game font-black text-white/55 text-[clamp(10px,2.8vw,12px)]">
     ตอนนี้อยู่ขั้นตอน
   </div>
@@ -553,8 +571,8 @@ const reportDetailsReady =
   </div>
 </div>
 {(page === "locked" || page === "report" || reportUnlocked) && (
-  <div className="mt-2 rounded-xl border-l-4 border-yellow-300 bg-white/5 px-3 py-2">
-  <div className="font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
+  <div className="arcade-card mt-2 rounded-2xl border-l-4 border-yellow-300 px-3 py-2">
+  <div className="arcade-text font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]">
     รายละเอียดเหตุการณ์
   </div>
 
@@ -570,6 +588,7 @@ const reportDetailsReady =
   font-black
   leading-tight
   text-slate-950
+  shadow-lg
   text-[clamp(17px,4.6vw,22px)]
 "
   >
@@ -592,7 +611,7 @@ const reportDetailsReady =
               </div>
 
               <p className="mt-2 font-bold leading-snug text-white/75 text-[clamp(14px,3.8vw,17px)]">
-                ลากบัตรขึ้นเข้า Reader แล้วรูดให้เส้นแดงตรงช่องเขียว
+              ลากบัตรขึ้นเสียบ Reader เพื่อเปิดแฟ้มคดี
               </p>
 
               <div
@@ -605,10 +624,6 @@ const reportDetailsReady =
                     handleInsertMove(e.clientY);
                     return;
                   }
-
-                  if (accessPhase === "swipe") {
-                    handleSwipeMove(e.clientX, rect.left, rect.width);
-                  }
                 }}
                 onPointerUp={() => {
                   if (paused) return;
@@ -618,8 +633,6 @@ const reportDetailsReady =
                     missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
                     return;
                   }
-
-                  handleSwipeEnd();
                 }}
                 onPointerCancel={() => {
                   if (paused) return;
@@ -629,8 +642,6 @@ const reportDetailsReady =
                     missAccess("❌ MISS -10 เสียบบัตรไม่ถึง Reader");
                     return;
                   }
-
-                  handleSwipeEnd();
                 }}
               >
                 <div className="mx-auto rounded-3xl border border-green-300/30 bg-green-500/10 px-3 py-3">
@@ -680,7 +691,7 @@ const reportDetailsReady =
                 <div
                   onPointerDown={(e) => {
                     if (paused) return;
-                    if (accessPhase !== "insert" && accessPhase !== "swipe") return;
+                    if (accessPhase !== "insert") return;
 
                     e.currentTarget.setPointerCapture(e.pointerId);
                     setIsDraggingCard(true);
@@ -693,17 +704,6 @@ const reportDetailsReady =
 
                       setScanMessage("⬆️ ลากบัตรขึ้นไปเสียบ Reader");
                       return;
-                    }
-
-                    if (accessPhase === "swipe") {
-                      const cardRect = e.currentTarget.getBoundingClientRect();
-
-                      dragOffsetRef.current = {
-                        x: e.clientX - cardRect.left,
-                        y: 0,
-                      };
-
-                      setScanMessage("➡️ รูดบัตรไปทางขวา");
                     }
                   }}
                   style={{
@@ -729,12 +729,6 @@ const reportDetailsReady =
                   ].join(" ")}
                 >
                   <div className="relative h-full w-full overflow-hidden rounded-[14px]">
-                    <div className="absolute left-1/2 top-[-12px] z-20 h-[120px] w-2 -translate-x-1/2 rounded-full bg-red-600 shadow-[0_0_16px_rgba(239,68,68,1)]" />
-
-                    <div className="absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full bg-red-700 px-2 py-[2px] text-[10px] font-black text-white">
-                      SCAN
-                    </div>
-
                     <div className="text-center">
                       <div className="font-black leading-none text-[clamp(18px,5vw,24px)]">
                         ACCESS
@@ -768,7 +762,7 @@ const reportDetailsReady =
               </div>
             </div>
           ) : (
-            <div className="mt-2 flex min-h-0 flex-1 flex-col rounded-[1.1rem] border border-white/10 bg-slate-950/90 p-3 shadow-xl">
+            <div className="arcade-panel mt-2 flex min-h-0 flex-1 flex-col rounded-[1.25rem] p-3">
               <div
   className={
     page === "report"
@@ -784,8 +778,8 @@ const reportDetailsReady =
   <div
     className={
       unlockMode
-        ? "font-game font-black text-yellow-300 text-center leading-tight text-[clamp(15px,4vw,20px)]"
-        : "font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]"
+      ? "arcade-text font-game font-black text-yellow-300 text-center leading-tight text-[clamp(15px,4vw,20px)]"
+      : "arcade-text font-game font-black text-yellow-300 text-[clamp(16px,4.2vw,21px)]"
     }
   >
     {getPageStory(page).title}
@@ -888,42 +882,18 @@ const reportDetailsReady =
   </div>
 )}
 
-<div className={unlockMode || page === "report" || page === "lesson" ? "hidden" : "mt-4 space-y-3"}>
-{lines
-  .filter((_, index) => !revealedIndexes.includes(index) && !unlockMode)
-  .map((line, index) => {
-    const originalIndex = lines.indexOf(line);
-    const revealed = revealedIndexes.includes(originalIndex);
-
-    return (
-    <button
-    key={`${line.text}-${originalIndex}`}
-    onClick={() => {
-      if (revealed || unlockMode) return;
-      startUnlockInfo(originalIndex);
-    }}
-      disabled={revealed || !!unlockMode}
-      className={[
-        "w-full rounded-2xl px-4 py-4 text-left font-game font-bold leading-snug shadow-lg transition-all text-[clamp(15px,4vw,19px)]",
-        revealed
-          ? "bg-white text-slate-950"
-          : "bg-gradient-to-r from-yellow-400 to-yellow-300 text-slate-950 border-2 border-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.45)] active:scale-95 animate-pulse",
-      ].join(" ")}
-    >
-      {revealed ? (
-        line.text
-      ) : (
-        <div className="flex items-center justify-center gap-2">
-  <span className="text-[22px]">🔒</span>
-
-  <span className="font-game font-black">
-  {getUnlockButtonText(page)}
-  </span>
-</div>
-      )}
-    </button>
-  );
-})}
+<div className={unlockMode || page === "lesson" ? "hidden" : "mt-4 space-y-3"}>
+{!allRevealed && !unlockMode && (
+  <button
+    onClick={() => startUnlockInfo(0)}
+    className="w-full rounded-2xl border-2 border-yellow-200 bg-yellow-300 px-4 py-5 text-center font-game font-black leading-tight text-slate-950 shadow-lg active:scale-95 text-[clamp(19px,5vw,26px)]"
+  >
+    <div className="flex items-center justify-center gap-2">
+      <span className="text-[24px]">🔓</span>
+      <span>{getUnlockButtonText(page)}</span>
+    </div>
+  </button>
+)}
               </div>
               {page === "lesson" && !unlockMode && (
   <div className="mt-2 rounded-2xl border-2 border-green-300 bg-green-500 px-4 py-4">
