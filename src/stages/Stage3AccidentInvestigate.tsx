@@ -500,8 +500,8 @@ const reportDetailsReady =
         <div
           className="mt-6 rounded-3xl border-2 border-blue-300/40 bg-blue-500/10 px-4 py-5 text-white"
           style={{
-            fontSize: "clamp(1.85rem,4.8vw,1.35rem)",
-            lineHeight: 1.65,
+            fontSize: "clamp(1.45rem,4.8vw,1.35rem)",
+            lineHeight: 1.1,
           }}
         >
           เหตุการณ์ที่ปรากฏภายในเกมเป็นเหตุการณ์จำลองเพื่อการเรียนรู้ด้านความปลอดภัยในการทำงาน
