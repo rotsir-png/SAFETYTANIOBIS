@@ -235,10 +235,23 @@ export default function LeaderboardScreen({ onBack }: Props) {
         ) : (
           <>
             <div className="font-game text-white/100 text-xs text-center mb-3">
-              Participation Team · % สมาชิกทีมที่เล่นครบทั้ง 3 ด่าน
-            </div>
+  Participation Team · % สมาชิกทีมที่เล่นครบทั้ง 3 ด่าน
+</div>
 
-            {loadingDept ? (
+<div
+  className="font-game text-center text-yellow-300 mb-3"
+  style={{
+    fontSize: 'clamp(0.8rem,3vw,0.95rem)',
+    lineHeight: 1.4,
+  }}
+>
+  🎁 อันดับปัจจุบันกำลังลุ้น Gift Card
+  1,500 / 1,000 / 500 บาท
+  <br />
+  อันดับอาจเปลี่ยนแปลงได้จนกว่าสิ้นสุดกิจกรรม
+</div>
+
+{loadingDept ? (
               <div className="flex items-center justify-center py-12">
                 <div className="font-game text-white/30 text-sm">กำลังโหลด...</div>
               </div>
@@ -269,24 +282,48 @@ export default function LeaderboardScreen({ onBack }: Props) {
                         transition: `all 0.4s ease ${i * 0.06}s`,
                       }}
                     >
-                      <div className="flex justify-between items-center mb-2">
-                      <div
-  className="font-game text-white font-bold flex-1 min-w-0 pr-2"
-  style={{
-    fontSize: 'clamp(1.15rem,4vw,1.4rem)',
-    lineHeight: 1.1,
-  }}
->
-                          {dept.dept}
-                        </div>
+                      <div className="mb-2">
+  <div className="flex items-start justify-between gap-2">
+    <div className="min-w-0 flex-1">
+      <div
+        className="font-game text-white font-bold leading-tight break-words"
+        style={{
+          fontSize: 'clamp(1.15rem,4vw,1.4rem)',
+        }}
+      >
+        {dept.dept}
+      </div>
 
-                        <div
-                          className="font-game font-bold flex-shrink-0"
-                          style={{ color: barColor, fontSize: 'clamp(1rem, 4vw, 1.2rem)' }}
-                        >
-                          {dept.percent}%
-                        </div>
-                      </div>
+      {i < 3 && (
+        <div
+          className="mt-1 inline-block rounded-full px-2 py-1 font-game font-black"
+          style={{
+            background:
+              i === 0 ? '#facc15' : i === 1 ? '#d1d5db' : '#fdba74',
+            color: '#000',
+            fontSize: 'clamp(0.7rem,2.8vw,0.85rem)',
+          }}
+        >
+          {i === 0
+            ? '🥇 ลุ้น Gift Card 1,500'
+            : i === 1
+            ? '🥈 ลุ้น Gift Card 1,000'
+            : '🥉 ลุ้น Gift Card 500'}
+        </div>
+      )}
+    </div>
+
+    <div
+      className="font-game font-bold shrink-0"
+      style={{
+        color: barColor,
+        fontSize: 'clamp(1rem, 4vw, 1.2rem)',
+      }}
+    >
+      {dept.percent}%
+    </div>
+  </div>
+</div>
 
                       <div
                         className="mb-2 font-game text-white/45"

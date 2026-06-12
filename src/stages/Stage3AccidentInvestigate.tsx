@@ -86,7 +86,7 @@ function getUnlockButtonText(page: CasePage) {
 export default function Stage3AccidentInvestigate({ onExit, onClear, onFail }: Props) {
   const { paused, togglePause, PauseOverlay } = usePause({
     onGiveUp: () => {
-      onExit?.();
+      onFail?.();
     },
   });
 
@@ -118,6 +118,7 @@ const [recoverError, setRecoverError] = useState("");
 const [screenShake, setScreenShake] = useState(false);
 const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
 const [showIntro, setShowIntro] = useState(true);
+const [introPage, setIntroPage] = useState<1 | 2>(1);
 const touchAreaRef = useRef<HTMLDivElement | null>(null);
 
 const dragStartRef = useRef({
@@ -413,75 +414,117 @@ const reportDetailsReady =
   return (
     <>
       {showIntro && (
+  <div
+    onPointerUp={() => {
+      if (introPage === 1) {
+        setIntroPage(2);
+      } else {
+        setShowIntro(false);
+      }
+    }}
+    className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/90 px-6 text-center"
+  >
+    {introPage === 1 ? (
+      <>
+        <div className="mb-4 text-7xl">🕵️</div>
+
         <div
-          onPointerUp={() => setShowIntro(false)}
-          className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-black/90 px-6 text-center"
+          className="font-game font-black text-yellow-300"
+          style={{
+            fontSize: "clamp(1.6rem,7vw,2.3rem)",
+            textShadow: "0 3px 0 rgba(0,0,0,0.5)",
+          }}
         >
-          <div className="mb-4 text-7xl">🕵️</div>
+          ACCIDENT INVESTIGATION
+        </div>
 
-          <div
-            className="font-game font-black text-yellow-300"
-            style={{
-              fontSize: "clamp(1.6rem,7vw,2.3rem)",
-              textShadow: "0 3px 0 rgba(0,0,0,0.5)",
-            }}
-          >
-            ACCIDENT INVESTIGATION
-          </div>
+        <div
+          className="mt-3 font-game leading-relaxed text-white/85"
+          style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
+        >
+          <div>🔓 เปิดแฟ้มอุบัติเหตุ</div>
+          <div>📋 วิเคราะห์เหตุการณ์ที่เกิดขึ้น</div>
+          <div>🔍 ค้นหาหลักฐาน</div>
+          <div>⚠️ ระบุสาเหตุ</div>
+          <div>✅ เรียนรู้วิธีป้องกัน</div>
+        </div>
 
-          <div
-            className="mt-3 font-game leading-relaxed text-white/85"
-            style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
-          >
-            <div>🔓 เปิดแฟ้มอุบัติเหตุ</div>
-            <div>📋 วิเคราะห์เหตุการณ์ที่เกิดขึ้น</div>
-            <div>🔍 ค้นหาหลักฐาน</div>
-            <div>⚠️ ระบุสาเหตุ</div>
-            <div>✅ เรียนรู้วิธีป้องกัน</div>
-          </div>
-
-          <div className="mt-4 grid w-full max-w-[340px] gap-2">
-            <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2">
-              <div className="font-game font-black text-red-300">HP -1</div>
-              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
-                เสียบบัตรไม่ถึง Reader
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2">
-              <div className="font-game font-black text-red-300">HP -1</div>
-              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
-                เติมคำผิด
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-green-400/30 bg-green-500/15 px-3 py-2">
-              <div className="font-game font-black text-green-300">เป้าหมาย</div>
-              <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
-                ปิดคดีให้ครบ 5 เคส
-              </div>
+        <div className="mt-4 grid w-full max-w-[340px] gap-2">
+          <div className="rounded-xl border border-red-400/30 bg-red-500/15 px-3 py-2">
+            <div className="font-game font-black text-red-300">HP -1</div>
+            <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
+              เสียบบัตรไม่ถึง Reader / เติมคำผิด
             </div>
           </div>
 
-          <div className="mt-4 rounded-2xl border border-yellow-300/40 bg-yellow-300/10 px-3 py-3">
-            <div
-              className="font-game font-black text-yellow-300"
-              style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
-            >
-              💀 HP หมด = ภารกิจล้มเหลว
-            </div>
-          </div>
-
-          <div className="mt-8 animate-pulse rounded-2xl border-2 border-yellow-300/40 bg-yellow-300/10 px-5 py-3">
-            <div
-              className="font-game font-black text-yellow-300"
-              style={{ fontSize: "clamp(1.1rem,5vw,1.45rem)" }}
-            >
-              👆 แตะเพื่อเริ่มสืบสวน
+          <div className="rounded-xl border border-green-400/30 bg-green-500/15 px-3 py-2">
+            <div className="font-game font-black text-green-300">เป้าหมาย</div>
+            <div className="text-white/75" style={{ fontSize: "clamp(0.78rem,3.2vw,0.95rem)" }}>
+              ปิดคดีให้ครบ 5 เคส
             </div>
           </div>
         </div>
-      )}
+
+        <div className="mt-4 rounded-2xl border border-yellow-300/40 bg-yellow-300/10 px-3 py-3">
+          <div
+            className="font-game font-black text-yellow-300"
+            style={{ fontSize: "clamp(0.95rem,4vw,1.15rem)" }}
+          >
+            💀 HP หมด = ภารกิจล้มเหลว
+          </div>
+        </div>
+
+        <div className="mt-8 animate-pulse rounded-2xl border-2 border-yellow-300/40 bg-yellow-300/10 px-5 py-3">
+          <div
+            className="font-game font-black text-yellow-300"
+            style={{ fontSize: "clamp(1.1rem,5vw,1.45rem)" }}
+          >
+            👆 แตะเพื่ออ่านหมายเหตุ
+          </div>
+        </div>
+      </>
+    ) : (
+      <>
+        <div className="mb-4 text-7xl">ℹ️</div>
+
+        <div
+          className="font-game font-black text-blue-300"
+          style={{
+            fontSize: "clamp(1.7rem,7vw,2.4rem)",
+            textShadow: "0 3px 0 rgba(0,0,0,0.5)",
+          }}
+        >
+          หมายเหตุ
+        </div>
+
+        <div
+          className="mt-6 rounded-3xl border-2 border-blue-300/40 bg-blue-500/10 px-4 py-5 text-white"
+          style={{
+            fontSize: "clamp(1.85rem,4.8vw,1.35rem)",
+            lineHeight: 1.65,
+          }}
+        >
+          เหตุการณ์ที่ปรากฏภายในเกมเป็นเหตุการณ์จำลองเพื่อการเรียนรู้ด้านความปลอดภัยในการทำงาน
+          <br />
+          <br />
+          ไม่ได้อ้างอิงหรือระบุถึงบุคคล หน่วยงาน หรือเหตุการณ์จริงใด ๆ
+          <br />
+          <br />
+          ผู้เล่นควรนำบทเรียนที่ได้รับไปประยุกต์ใช้ในการปฏิบัติงานอย่างปลอดภัย
+        </div>
+
+        <div className="mt-8 animate-pulse rounded-2xl border-2 border-blue-300/40 bg-blue-500/10 px-5 py-3">
+          <div
+            className="font-game font-black text-blue-300"
+            style={{ fontSize: "clamp(1.1rem,5vw,1.45rem)" }}
+          >
+            👆 แตะเพื่อเริ่มสืบสวน
+          </div>
+        </div>
+      </>
+    )}
+  </div>
+)}
 
       <div
     className={[
