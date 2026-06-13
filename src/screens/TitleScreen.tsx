@@ -13,7 +13,7 @@ interface Props {
 }
 
 const ENDLESS_REQUIRES_STAGES = [1, 2, 3];
-const ENDLESS_ENABLED = false;
+const ENDLESS_ENABLED = true;
 
 export default function TitleScreen({
   profile,
@@ -28,9 +28,7 @@ export default function TitleScreen({
   const [endlessPopFeedback, setEndlessPopFeedback] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(isSoundEnabled());
 
-  const isEndlessUnlocked =
-  ENDLESS_ENABLED &&
-  ENDLESS_REQUIRES_STAGES.every(s => progress.passedStages.includes(s));
+  const isEndlessUnlocked = true;
 
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 50);

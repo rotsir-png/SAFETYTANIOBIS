@@ -385,14 +385,9 @@ if (p) {
 
 
 {screen === 'endless' && profile && (
-  <TitleScreen
-    profile={profile}
-    progress={progress}
-    onCampaign={() => setScreen('campaign')}
-    onEndless={() => setScreen('title')}
-    onLeaderboard={() => setScreen('leaderboard')}
-    onEditProfile={() => setScreen('edit_profile')}
-    onResetProfile={handleResetProfile}
+  <EndlessMode
+    onComplete={handleEndlessComplete}
+    onExit={() => setScreen('title')}
   />
 )}
 
