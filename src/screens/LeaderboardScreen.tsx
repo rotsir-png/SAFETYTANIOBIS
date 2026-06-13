@@ -242,13 +242,14 @@ export default function LeaderboardScreen({ onBack }: Props) {
   className="font-game text-center text-yellow-300 mb-3"
   style={{
     fontSize: 'clamp(0.8rem,3vw,0.95rem)',
-    lineHeight: 1.4,
+    lineHeight: 1.45,
   }}
 >
-  🎁 อันดับปัจจุบันกำลังลุ้น Gift Card
-  1,500 / 1,000 / 500 บาท
+  🎁 Gift Card 1,500 / 1,000 / 500 บาท
   <br />
-  อันดับอาจเปลี่ยนแปลงได้จนกว่าสิ้นสุดกิจกรรม
+  มอบให้ทีมที่มี % สมาชิกเล่นครบ 3 ด่านสูงที่สุด
+  <br />
+  🎲 หากหลายทีมมี % เท่ากัน จะใช้การจับสลากตัดสินรางวัล
 </div>
 
 {loadingDept ? (
@@ -266,7 +267,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
               <div className="flex flex-col gap-3">
                 {remoteDept.map((dept, i) => {
                   const relativeWidth = Math.max(0, Math.min(100, dept.percent));
-                  const barColor = i === 0 ? '#22c55e' : i <= 2 ? '#f59e0b' : '#60a5fa';
+                  const barColor = '#22c55e';
 
                   return (
                     <button
@@ -298,17 +299,16 @@ export default function LeaderboardScreen({ onBack }: Props) {
         <div
           className="mt-1 inline-block rounded-full px-2 py-1 font-game font-black"
           style={{
-            background:
-              i === 0 ? '#facc15' : i === 1 ? '#d1d5db' : '#fdba74',
-            color: '#000',
+            background: '#2563eb',
+color: '#fff',
             fontSize: 'clamp(0.7rem,2.8vw,0.85rem)',
           }}
         >
           {i === 0
-            ? '🥇 ลุ้น Gift Card 1,500'
-            : i === 1
-            ? '🥈 ลุ้น Gift Card 1,000'
-            : '🥉 ลุ้น Gift Card 500'}
+  ? '🎁 ลุ้นรับรางวัล'
+  : i === 1
+  ? '🎁 ลุ้นรับรางวัล'
+  : '🎁 ลุ้นรับรางวัล'}
         </div>
       )}
     </div>
