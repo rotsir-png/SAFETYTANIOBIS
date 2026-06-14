@@ -193,40 +193,51 @@ const [selectedChoice, setSelectedChoice] = useState<Choice | null>(null);
         )}
       </div>
       {selectedChoice && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full rounded-[30px] border-4 border-yellow-300 bg-slate-950 p-4 shadow-[0_0_35px_rgba(250,204,21,0.35)]">
-            <div className="text-center">
-              <div className="text-5xl">📋</div>
-              <div className="mt-2 font-game font-black text-yellow-300 text-[clamp(1.4rem,7vw,2rem)]">
-                ยืนยันคำตอบ?
-              </div>
-              <div className="font-game text-white/60 text-sm">
-                เลือก Root Cause นี้ใช่ไหม
-              </div>
-            </div>
+  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+    <div className="w-full rounded-[30px] border-4 border-yellow-300 bg-slate-950 p-4 shadow-[0_0_42px_rgba(250,204,21,0.65)]">
+      <div className="text-center">
+        <div className="text-6xl">📋</div>
 
-            <div className="mt-4 max-h-[38vh] overflow-y-auto rounded-[22px] bg-white p-4 font-game font-black leading-[1.45] text-slate-950 text-[clamp(1.05rem,4.8vw,1.25rem)]">
-              <span className="whitespace-pre-line">{selectedChoice.label}</span>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => setSelectedChoice(null)}
-                className="rounded-[24px] bg-white/10 py-5 font-game font-black text-white active:scale-95"
-              >
-                แก้ไข
-              </button>
-
-              <button
-                onClick={() => onComplete(selectedChoice.full === correctRootCause)}
-                className="rounded-[24px] bg-yellow-300 py-5 font-game font-black text-slate-950 active:scale-95"
-              >
-                ส่งคำตอบ
-              </button>
-            </div>
-          </div>
+        <div
+          className="mt-2 font-game font-black text-yellow-300"
+          style={{
+            fontSize: "clamp(1.8rem,7vw,2.4rem)",
+            textShadow: "0 3px 0 rgba(0,0,0,0.6)",
+          }}
+        >
+          ยืนยันคำตอบ?
         </div>
-      )}
+
+        <div className="font-game font-black text-white text-[clamp(1rem,4vw,1.15rem)]">
+          เลือก Root Cause นี้ใช่ไหม
+        </div>
+      </div>
+
+      <div className="mt-4 max-h-[40vh] overflow-y-auto rounded-[22px] border-2 border-yellow-300 bg-yellow-100 p-5 font-game font-black leading-[1.45] text-slate-950 shadow-lg text-[clamp(1.15rem,5vw,1.35rem)]">
+        <span className="whitespace-pre-line">{selectedChoice.label}</span>
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <button
+          onClick={() => setSelectedChoice(null)}
+          className="rounded-[24px] bg-slate-700 py-5 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(1.15rem,5vw,1.4rem)]"
+        >
+          แก้ไข
+        </button>
+
+        <button
+          onClick={() => onComplete(selectedChoice.full === correctRootCause)}
+          className="rounded-[24px] bg-green-600 py-5 font-game font-black text-white shadow-lg active:scale-95 text-[clamp(1.15rem,5vw,1.4rem)]"
+          style={{
+            textShadow: "0 3px 0 rgba(0,0,0,0.45)",
+          }}
+        >
+          ส่งคำตอบ
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }
