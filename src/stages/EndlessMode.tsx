@@ -39,16 +39,34 @@ type TaskType =
     answer: number;
   };
 
+  type TrainingId =
+  | "ASSISTANT"
+  | "SLOW_QUEUE"
+  | "EXTRA_TIME"
+  | "DISPATCHER"
+  | "RISK_ENGINEER"
+  | "SAFETY_TRAINER"
+  | "FIRST_AID";
+
 type Training = {
-  id: string;
+  id: TrainingId;
   icon: string;
   title: string;
   desc: string;
 };
-
+type WalkingRequest = {
+  id: string;
+  npc: "WORKER" | "FORKLIFT" | "BOSS";
+  icon: string;
+  title: string;
+  question: string;
+  choices: string[];
+  answer: number;
+};
 const MAX_MISTAKES = 5;
 const MAX_SAFETY = 100;
 const SHIFT_EVERY = 10;
+const SHIFT_TARGET = 10;
 const QUEUE_MAX = 5;
 
 const TASK_BANK: Omit<Task, "id" | "priority" | "timeLeft" | "maxTime">[] = [
@@ -172,11 +190,64 @@ const TASK_BANK: Omit<Task, "id" | "priority" | "timeLeft" | "maxTime">[] = [
 ];
 
 const TRAININGS: Training[] = [
-  { id: "ASSISTANT", icon: "👷", title: "Assistant Officer", desc: "เคลียร์งานง่ายให้อัตโนมัติบางครั้ง" },
+  { id: "ASSISTANT", icon: "👷", title: "Assistant Officer", desc: "ได้ Assist +2 ครั้ง เคลียร์งานเสี่ยงแทนได้" },
   { id: "SLOW_QUEUE", icon: "🧊", title: "Queue Control", desc: "งานใหม่เข้า Queue ช้าลง" },
   { id: "EXTRA_TIME", icon: "⏱️", title: "Better Planning", desc: "Task ใหม่มีเวลาเพิ่ม" },
+  { id: "DISPATCHER", icon: "📡", title: "Dispatcher", desc: "เพิ่มขนาด Queue สูงสุด +1" },
+  { id: "RISK_ENGINEER", icon: "🛡️", title: "Risk Engineer", desc: "งาน HIGH มีเวลาเพิ่ม ลดไฟไหม้หน้างาน" },
+  { id: "SAFETY_TRAINER", icon: "🎤", title: "Safety Trainer", desc: "Walking Request ตอบถูกได้คะแนนเพิ่ม" },
+  { id: "FIRST_AID", icon: "🏥", title: "First Aid Team", desc: "ลด Mistake ทันที 1 ครั้ง" },
 ];
-
+const WALKING_REQUESTS: Omit<WalkingRequest, "id">[] = [
+  {
+    npc: "WORKER",
+    icon: "👷",
+    title: "พนักงานถามด่วน!",
+    question: "งานเจียรต้องใส่ Face Shield ไหม?",
+    choices: ["ต้องใส่", "ไม่ต้อง ใส่แว่นพอ"],
+    answer: 0,
+  },
+  {
+    npc: "FORKLIFT",
+    icon: "🚜",
+    title: "รถยกขอทาง!",
+    question: "มีคนเดินตัดหน้ารถยก ควรทำอย่างไร?",
+    choices: ["บีบแตรแล้วไปต่อ", "หยุดรถก่อน"],
+    answer: 1,
+  },
+  {
+    npc: "BOSS",
+    icon: "👔",
+    title: "หัวหน้ามาเร่ง!",
+    question: "งานรีบมาก ข้าม JSA ได้ไหม?",
+    choices: ["ได้ งานด่วน", "ไม่ได้ ต้องทำก่อน"],
+    answer: 1,
+  },
+  {
+    npc: "WORKER",
+    icon: "👷",
+    title: "พนักงานลังเล!",
+    question: "ถุงมือขาดนิดหน่อย ใช้ต่อได้ไหม?",
+    choices: ["ใช้ต่อได้", "เปลี่ยนใหม่"],
+    answer: 1,
+  },
+  {
+    npc: "FORKLIFT",
+    icon: "🚜",
+    title: "รถยกโหลดเต็ม!",
+    question: "ของบังทางมองข้างหน้า ควรขับต่อไหม?",
+    choices: ["ไม่ควร ต้องแก้ก่อน", "ขับช้า ๆ ก็พอ"],
+    answer: 0,
+  },
+  {
+    npc: "BOSS",
+    icon: "👔",
+    title: "หัวหน้าขอเร็ว!",
+    question: "Lockout Tagout เสียเวลา ข้ามได้ไหม?",
+    choices: ["ห้ามข้าม", "ข้ามได้ถ้าช่างเก่ง"],
+    answer: 0,
+  },
+];
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -214,7 +285,7 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   const [phase, setPhase] = useState<Phase>("dashboard");
   const [queue, setQueue] = useState<Task[]>(() => [makeTask(0, 1)]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
-
+  const [walkingRequest, setWalkingRequest] = useState<WalkingRequest | null>(null);
   const [score, setScore] = useState(0);
   const [factorySafety, setFactorySafety] = useState(MAX_SAFETY);
   const [mistakes, setMistakes] = useState(0);
@@ -224,8 +295,11 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
 
   const [extraTime, setExtraTime] = useState(0);
   const [queueSlow, setQueueSlow] = useState(0);
-  const [assistantChance, setAssistantChance] = useState(0);
   const [assistCharges, setAssistCharges] = useState(0);
+  const [overflowStacks, setOverflowStacks] = useState(0);
+  const [queueBonus, setQueueBonus] = useState(0);
+const [riskEngineerLevel, setRiskEngineerLevel] = useState(0);
+const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
 
   const doneRef = useRef(false);
   const pausedRef = useRef(false);
@@ -237,7 +311,29 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
-
+  useEffect(() => {
+    if (phase !== "dashboard" || doneRef.current) return;
+  
+    const spawnWalkingRequest = () => {
+      if (pausedRef.current || doneRef.current || walkingRequest) return;
+  
+      const base = pick(WALKING_REQUESTS);
+      setWalkingRequest({
+        ...base,
+        id: `${base.npc}-${Date.now()}-${Math.random()}`,
+      });
+  
+      setBanner(`${base.icon} มีคนมาถามด่วน! ตอบเร็ว จป.!`);
+    };
+  
+    const delay = Math.max(7000, 15000 - shift * 600);
+  
+    const timer = window.setInterval(spawnWalkingRequest, delay);
+  
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [phase, shift, walkingRequest]);
   const finishRun = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
@@ -259,7 +355,6 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
       setMistakes((m) => {
         const next = m + 1;
         if (next >= MAX_MISTAKES) {
-          doneRef.current = true;
           setBanner("💥 โรงงานระเบิด! Safety Rating พังแล้ว!");
           setPhase("gameover");
           window.setTimeout(() => finishRun(), 900);
@@ -299,14 +394,27 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
       if (pausedRef.current || doneRef.current) return;
 
       setQueue((q) => {
-        const maxQueue = Math.min(QUEUE_MAX, 1 + shift);
+        const maxQueue = Math.min(QUEUE_MAX + queueBonus, 1 + shift + queueBonus);
       
         if (q.length >= maxQueue) {
-          damageFactory(5, "Queue ล้น");
+          setOverflowStacks((stack) => {
+            const next = Math.min(3, stack + 1);
+            damageFactory(5 * next, `Queue ล้น x${next}`);
+            return next;
+          });
+        
           return q;
         }
       
-        return [...q, makeTask(extraTime, shift)];
+        const newTask = makeTask(extraTime, shift);
+
+if (newTask.priority === "HIGH" && riskEngineerLevel > 0) {
+  const bonus = riskEngineerLevel * 2;
+  newTask.timeLeft += bonus;
+  newTask.maxTime += bonus;
+}
+
+return [...q, newTask];
       });
     }, spawnMs);
 
@@ -314,7 +422,7 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
       window.clearInterval(interval);
       window.clearInterval(spawn);
     };
-  }, [damageFactory, extraTime, phase, queueSlow, shift]);
+  }, [damageFactory, extraTime, phase, queueBonus, queueSlow, riskEngineerLevel, shift]);
 
   const openTask = (task: Task) => {
     setActiveTask(task);
@@ -329,6 +437,7 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
     setQueue((q) => q.filter((t) => t.id !== activeTask.id));
 
     if (correct) {
+      setOverflowStacks(0);
       const priorityBonus =
   activeTask.priority === "HIGH" ? 80 :
   activeTask.priority === "MEDIUM" ? 40 :
@@ -352,12 +461,7 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
       setTasksDone((d) => {
         const next = d + 1;
 
-        if (assistantChance > 0 && Math.random() < assistantChance) {
-          setQueue((q) => q.slice(1));
-          setBanner("👷 Assistant Officer ช่วยเคลียร์งานให้ 1 งาน!");
-        } else {
-          setBanner(successBanner);
-        }
+        setBanner(successBanner);
 
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
@@ -378,13 +482,34 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
 
   const chooseTraining = (training: Training) => {
     if (training.id === "ASSISTANT") {
-      setAssistantChance((x) => Math.min(0.35, x + 0.12));
-      setAssistCharges((x) => x + 1);
+      setAssistCharges((x) => x + 2);
     }
-    if (training.id === "SLOW_QUEUE") setQueueSlow((x) => x + 350);
-    if (training.id === "EXTRA_TIME") setExtraTime((x) => x + 2);
-
-    setBanner(`${training.icon} ${training.title} พร้อมช่วยงาน`);
+  
+    if (training.id === "SLOW_QUEUE") {
+      setQueueSlow((x) => x + 350);
+    }
+  
+    if (training.id === "EXTRA_TIME") {
+      setExtraTime((x) => x + 2);
+    }
+  
+    if (training.id === "DISPATCHER") {
+      setQueueBonus((x) => Math.min(3, x + 1));
+    }
+  
+    if (training.id === "RISK_ENGINEER") {
+      setRiskEngineerLevel((x) => Math.min(3, x + 1));
+    }
+  
+    if (training.id === "SAFETY_TRAINER") {
+      setWalkingBonusLevel((x) => Math.min(3, x + 1));
+    }
+  
+    if (training.id === "FIRST_AID") {
+      setMistakes((m) => Math.max(0, m - 1));
+    }
+  
+    setBanner(`${training.icon} ${training.title} เข้าทีม Safety แล้ว!`);
     setPhase("dashboard");
   };
 
@@ -415,6 +540,48 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
   
     setBanner(`👷 Assistant เคลียร์ ${target.title} ให้แล้ว +50`);
   };
+  
+  const answerWalkingRequest = (choiceIndex: number) => {
+    if (!walkingRequest) return;
+  
+    const correct = choiceIndex === walkingRequest.answer;
+  
+    if (correct) {
+      const gained = 30 + shift * 5 + walkingBonusLevel * 15;
+setScore((s) => s + gained);
+setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
+    } else {
+      damageFactory(5, "ตอบ Walking Request ผิด");
+    }
+  
+    setWalkingRequest(null);
+  };
+  const devClearTask = () => {
+    if (phase !== "dashboard" || queue.length === 0 || doneRef.current) {
+      return;
+    }
+  
+    const target = queue[0];
+  
+    setQueue((q) => q.slice(1));
+    setOverflowStacks(0);
+  
+    const gained = 100 + shift * 10;
+    setScore((s) => s + gained);
+  
+    setTasksDone((d) => {
+      const next = d + 1;
+  
+      setBanner(`🧪 DEV CLEAR: ${target.title} +${gained}`);
+  
+      if (next > 0 && next % SHIFT_EVERY === 0) {
+        setShift((sh) => sh + 1);
+        window.setTimeout(() => setPhase("training"), 250);
+      }
+  
+      return next;
+    });
+  };
   return (
     <div
       className="relative flex h-full flex-col overflow-hidden select-none"
@@ -442,7 +609,7 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
           </div>
         </div>
 
-        <div className="mt-2 grid grid-cols-4 gap-2">
+        <div className="mt-2 grid grid-cols-5 gap-2">
   <Hud label="SAFETY" value={`${factorySafety}%`} />
 
   <Hud
@@ -467,6 +634,19 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
       👷x{assistCharges}
     </div>
   </button>
+  <button
+  onClick={devClearTask}
+  className="rounded-2xl border border-pink-300/40 bg-pink-500/20 px-2 py-2 text-center active:scale-95"
+>
+  <div className="font-game text-white/45 text-[10px]">
+    DEV
+  </div>
+
+  <div className="font-game font-black text-pink-200">
+    CLEAR
+  </div>
+</button>
+
 </div>
 
         <div className="mt-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-center">
@@ -474,14 +654,19 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
             {banner}
           </div>
           <div className="font-game text-white/45 text-xs">
-            Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
+          Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
           </div>
         </div>
       </div>
 
       <div className="relative z-10 flex-1 min-h-0 px-3 pb-3">
         {phase === "dashboard" && (
-          <Dashboard queue={queue} onOpen={openTask} />
+          <Dashboard
+          queue={queue}
+          walkingRequest={walkingRequest}
+          onOpen={openTask}
+          onAnswerWalkingRequest={answerWalkingRequest}
+        />
         )}
 
         {phase === "resolve" && activeTask && (
@@ -519,54 +704,196 @@ function Hud({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Dashboard({ queue, onOpen }: { queue: Task[]; onOpen: (task: Task) => void }) {
+function Dashboard({
+  queue,
+  walkingRequest,
+  onOpen,
+  onAnswerWalkingRequest,
+}: {
+  queue: Task[];
+  walkingRequest: WalkingRequest | null;
+  onOpen: (task: Task) => void;
+  onAnswerWalkingRequest: (index: number) => void;
+}) {
+  const urgentTask = queue[0];
+  const deskPressure = Math.min(100, (queue.length / 5) * 100);
+  const isOverload = queue.length >= 4;
+
   return (
     <div className="flex h-full flex-col gap-3">
       <div className="relative flex-1 overflow-hidden rounded-[30px] border border-white/10 bg-slate-950/70">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#2DAABE33,transparent_55%)]" />
-        <div className="absolute bottom-4 left-0 right-0 flex justify-around text-5xl opacity-80">
-          <span className="animate-bounce">👷</span>
-          <span>🚜</span>
-          <span className="animate-pulse">👔</span>
+
+        <div className="absolute left-3 top-3 z-10 rounded-2xl bg-black/45 px-3 py-2">
+          <div className="font-game font-black text-white text-xl">
+            FACTORY OFFICE
+          </div>
+          <div className="font-game text-white/60 text-sm">
+            {isOverload ? "DESK OVERLOAD!! งานล้นโต๊ะแล้ว!" : "งานเดินเข้าโต๊ะ จป. แล้ว!"}
+          </div>
         </div>
-        <div className="relative z-10 p-4">
-          <div className="font-game font-black text-white text-xl">FACTORY FLOOR</div>
-          <div className="font-game text-white/60 text-sm">งาน Safety กำลังไหลเข้า Queue</div>
+
+        {isOverload && (
+          <div className="absolute left-3 right-3 top-24 z-20 rounded-2xl border-4 border-red-500 bg-red-950/85 px-3 py-2 text-center animate-pulse">
+            <div className="font-game font-black text-red-300 text-[clamp(1.1rem,5vw,1.5rem)]">
+              🚨 DESK OVERLOAD
+            </div>
+            <div className="font-game text-white text-sm">
+              งานล้นโต๊ะ รีบเลือกงานด่วน!
+            </div>
+          </div>
+        )}
+
+        <div className="absolute bottom-4 left-3 right-3 z-10">
+          <div className="mb-3 flex items-end justify-between text-5xl">
+            <div className="animate-bounce">👷</div>
+
+            <div className="rounded-[24px] border-4 border-yellow-300 bg-black/70 px-4 py-3 text-center shadow-[0_0_25px_rgba(250,204,21,0.35)]">
+              <div className="text-4xl">🧑‍💼</div>
+              <div className="font-game font-black text-yellow-300 text-xs">
+                SAFETY DESK
+              </div>
+            </div>
+
+            <div className="animate-pulse">🚜</div>
+            <div>👔</div>
+          </div>
+
+          <div className="relative h-28 rounded-[26px] border border-white/10 bg-black/40 overflow-hidden">
+            <div className="absolute left-2 top-2 font-game text-white/45 text-xs">
+              LIVE TASK FLOW
+            </div>
+
+            {queue.slice(0, 5).map((task, index) => (
+              <button
+                key={task.id}
+                onClick={() => onOpen(task)}
+                className={`absolute top-9 rounded-2xl border px-3 py-2 text-left active:scale-95 ${
+                  task.priority === "HIGH"
+                    ? "border-red-400 bg-red-500/25"
+                    : task.priority === "MEDIUM"
+                    ? "border-yellow-300/60 bg-yellow-300/20"
+                    : "border-white/20 bg-white/15"
+                }`}
+                style={{
+                  left: `${Math.min(72, index * 18)}%`,
+                  transform: `translateX(-${index * 6}px)`,
+                }}
+              >
+                <div className="font-game font-black text-white text-[clamp(0.75rem,3.2vw,0.95rem)] whitespace-nowrap">
+                  {task.icon} {task.title}
+                </div>
+                <div className="font-game font-black text-red-300 text-xs">
+                  {Math.ceil(task.timeLeft)}s
+                </div>
+              </button>
+            ))}
+
+            {queue.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center font-game font-black text-white/45">
+                โต๊ะโล่ง... แปลก ๆ นะ จป.
+              </div>
+            )}
+          </div>
         </div>
+
+        {walkingRequest && (
+          <div className="absolute inset-x-3 bottom-36 z-30 rounded-[26px] border-4 border-yellow-300 bg-slate-950/95 p-3 shadow-[0_0_30px_rgba(250,204,21,0.35)] animate-bounce">
+            <div className="flex items-center gap-3">
+              <div className="text-5xl">{walkingRequest.icon}</div>
+
+              <div className="min-w-0 flex-1">
+                <div className="font-game font-black text-yellow-300 text-[clamp(1rem,4.5vw,1.3rem)]">
+                  {walkingRequest.title}
+                </div>
+                <div className="font-game font-black text-white text-[clamp(0.95rem,4vw,1.15rem)] leading-tight">
+                  {walkingRequest.question}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {walkingRequest.choices.map((choice, index) => (
+                <button
+                  key={choice}
+                  onClick={() => onAnswerWalkingRequest(index)}
+                  className="rounded-2xl bg-[#2DAABE] px-3 py-4 font-game font-black text-white text-[clamp(0.95rem,4vw,1.1rem)] active:scale-95"
+                >
+                  {choice}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-[26px] border border-white/10 bg-black/45 p-3">
-        <div className="mb-2 font-game font-black text-yellow-300">TASK QUEUE</div>
+        <div className="mb-2 h-3 overflow-hidden rounded-full bg-black/50">
+          <div
+            className="h-full rounded-full bg-red-500 transition-all"
+            style={{ width: `${deskPressure}%` }}
+          />
+        </div>
+
+        <div className="mb-2 flex items-center justify-between">
+          <div className="font-game font-black text-yellow-300">
+            PRIORITY DESK
+          </div>
+          <div className="font-game text-white/45 text-xs">
+            PRESSURE {Math.round(deskPressure)}%
+          </div>
+        </div>
+
+        {urgentTask && (
+          <button
+            onClick={() => onOpen(urgentTask)}
+            className="mb-2 w-full rounded-[24px] border-4 border-yellow-300 bg-yellow-300/15 p-3 text-left active:scale-95"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="font-game font-black text-yellow-300 text-lg">
+                🔥 NEXT: {urgentTask.icon} {urgentTask.title}
+              </div>
+              <div className="font-game font-black text-red-300">
+                {Math.ceil(urgentTask.timeLeft)}s
+              </div>
+            </div>
+            <div className="font-game text-white/70 text-sm">
+              {urgentTask.desc}
+            </div>
+          </button>
+        )}
+
         <div className="grid gap-2">
-          {queue.map((task) => (
+          {queue.slice(1).map((task) => (
             <button
               key={task.id}
               onClick={() => onOpen(task)}
               className="rounded-2xl border border-white/10 bg-white/10 p-3 text-left active:scale-95"
             >
               <div className="flex items-center justify-between gap-2">
-              <div className="font-game font-black text-white">
-  {task.icon} {task.title}
-</div>
-<div
-  className={`rounded-full px-2 py-1 font-game text-[10px] font-black ${
-    task.priority === "HIGH"
-      ? "bg-red-500 text-white"
-      : task.priority === "MEDIUM"
-      ? "bg-yellow-300 text-slate-950"
-      : "bg-green-400 text-slate-950"
-  }`}
->
-  {task.priority}
-</div>
-                <div className="font-game font-black text-red-300">{Math.ceil(task.timeLeft)}s</div>
-              </div>
-              <div className="font-game text-white/60 text-sm">{task.desc}</div>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-black/40">
+                <div className="font-game font-black text-white">
+                  {task.icon} {task.title}
+                </div>
+
                 <div
-                  className="h-full rounded-full bg-yellow-300"
-                  style={{ width: `${Math.max(0, (task.timeLeft / task.maxTime) * 100)}%` }}
-                />
+                  className={`rounded-full px-2 py-1 font-game text-[10px] font-black ${
+                    task.priority === "HIGH"
+                      ? "bg-red-500 text-white"
+                      : task.priority === "MEDIUM"
+                      ? "bg-yellow-300 text-slate-950"
+                      : "bg-green-400 text-slate-950"
+                  }`}
+                >
+                  {task.priority}
+                </div>
+
+                <div className="font-game font-black text-red-300">
+                  {Math.ceil(task.timeLeft)}s
+                </div>
+              </div>
+
+              <div className="font-game text-white/60 text-sm">
+                {task.desc}
               </div>
             </button>
           ))}
