@@ -333,7 +333,7 @@ if (p) {
           profile={profile}
           progress={progress}
           onCampaign={() => setScreen('campaign')}
-          onEndless={() => setScreen('title')}
+          onEndless={() => setScreen('endless')}
           onLeaderboard={() => setScreen('leaderboard')}
           onEditProfile={() => setScreen('edit_profile')}
           onResetProfile={handleResetProfile}
