@@ -8,6 +8,7 @@ import {
 } from "../data/endless/documentReviewCases";
 import AccidentInvestigateTask from "./endless/AccidentInvestigateTask";
 import SpotHazardTask from "./endless/SpotHazardTask";
+import SafetySwipeLiteTask from "./endless/SafetySwipeLiteTask";
 
 type Props = {
   onComplete: (score: number, highScore: number) => void;
@@ -332,10 +333,11 @@ function makeTask(extraTime = 0, shift = 1): Task {
     priority === "HIGH" ? -3 : priority === "MEDIUM" ? -1 : 2;
 
   const shiftPenalty = Math.min(5, Math.floor(shift / 2));
-  const maxTime = Math.max(
-    6,
-    15 + extraTime + priorityBonus - shiftPenalty + Math.floor(Math.random() * 5)
-  );
+  const baseTime = 60;
+const maxTime = Math.max(
+  18,
+  baseTime + extraTime + priorityBonus - shiftPenalty * 5 + Math.floor(Math.random() * 8)
+);
 
   const display = getEndlessTaskDisplay(base.type);
 
@@ -356,6 +358,7 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   const [activeDocumentCase, setActiveDocumentCase] = useState<DocumentReviewCase | null>(null);
   const [activeAccidentTask, setActiveAccidentTask] = useState(false);
   const [activeSpotHazardTask, setActiveSpotHazardTask] = useState(false);
+  const [activeSafetySwipeTask, setActiveSafetySwipeTask] = useState(false);
   const [walkingRequest, setWalkingRequest] = useState<WalkingRequest | null>(null);
   const [score, setScore] = useState(0);
   const [factorySafety, setFactorySafety] = useState(MAX_SAFETY);
@@ -367,7 +370,6 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   const [extraTime, setExtraTime] = useState(0);
   const [queueSlow, setQueueSlow] = useState(0);
   const [assistCharges, setAssistCharges] = useState(0);
-  const [overflowStacks, setOverflowStacks] = useState(0);
   const [queueBonus, setQueueBonus] = useState(0);
 const [riskEngineerLevel, setRiskEngineerLevel] = useState(0);
 const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
@@ -382,29 +384,12 @@ const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
-  useEffect(() => {
-    if (phase !== "dashboard" || doneRef.current) return;
-  
-    const spawnWalkingRequest = () => {
-      if (pausedRef.current || doneRef.current || walkingRequest) return;
-  
-      const base = pick(WALKING_REQUESTS);
-      setWalkingRequest({
-        ...base,
-        id: `${base.npc}-${Date.now()}-${Math.random()}`,
-      });
-  
-      setBanner(`${base.icon} มีคนมาถามด่วน! ตอบเร็ว จป.!`);
-    };
-  
-    const delay = Math.max(7000, 15000 - shift * 600);
-  
-    const timer = window.setInterval(spawnWalkingRequest, delay);
-  
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [phase, shift, walkingRequest]);
+  // Walking Request disabled for Endless V1.
+// It was too distracting during queue/task gameplay.
+// Keep the state/render code for later, but do not spawn it tonight.
+useEffect(() => {
+  setWalkingRequest(null);
+}, []);
   const finishRun = useCallback(() => {
     if (doneRef.current) return;
     doneRef.current = true;
@@ -439,7 +424,7 @@ const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
   );
 
   useEffect(() => {
-    if (phase !== "dashboard" || doneRef.current) return;
+    if ((phase !== "dashboard" && phase !== "resolve") || doneRef.current) return;
 
     const spawnMs = Math.max(1800, 4200 - shift * 250 + queueSlow);
 
@@ -465,14 +450,12 @@ const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
       if (pausedRef.current || doneRef.current) return;
 
       setQueue((q) => {
-        const maxQueue = Math.min(QUEUE_MAX + queueBonus, 1 + shift + queueBonus);
+        const maxQueue = Math.min(QUEUE_MAX + queueBonus, 4 + Math.floor(shift / 2) + queueBonus);
       
         if (q.length >= maxQueue) {
-          setOverflowStacks((stack) => {
-            const next = Math.min(3, stack + 1);
-            damageFactory(5 * next, `Queue ล้น x${next}`);
-            return next;
-          });
+          setFactorySafety((s) => Math.max(0, s - 2));
+        
+          setBanner("⚠️ Queue เต็ม! งานใหม่ค้างรอ / Safety -2");
         
           return q;
         }
@@ -499,8 +482,9 @@ return [...q, newTask];
     setActiveTask(task);
   
     setActiveDocumentCase(null);
-    setActiveAccidentTask(false);
-    setActiveSpotHazardTask(false);
+setActiveAccidentTask(false);
+setActiveSpotHazardTask(false);
+setActiveSafetySwipeTask(false);
   
     const group = getTaskGroup(task.type);
   
@@ -515,8 +499,18 @@ return [...q, newTask];
     if (group === "INVESTIGATION") {
       setActiveAccidentTask(true);
     }
+    if (group === "COACHING") {
+      setActiveSafetySwipeTask(true);
+    }
   
     setPhase("resolve");
+  };
+  const getSafetyMultiplier = () => {
+    if (factorySafety >= 90) return 1.5;
+    if (factorySafety >= 70) return 1.3;
+    if (factorySafety >= 50) return 1.1;
+    if (factorySafety >= 30) return 1.0;
+    return 0.8;
   };
   const answerAccidentTask = (correct: boolean) => {
     if (!activeTask) return;
@@ -524,7 +518,7 @@ return [...q, newTask];
     setQueue((q) => q.filter((t) => t.id !== activeTask.id));
   
     if (correct) {
-      const gained = 200 + shift * 10;
+      const gained = Math.round((200 + shift * 10) * getSafetyMultiplier());
       setScore((s) => s + gained);
       setFactorySafety((s) => Math.min(MAX_SAFETY, s + 3));
   
@@ -534,9 +528,10 @@ return [...q, newTask];
   
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
+          window.setTimeout(() => setPhase("training"), 350);
+        } else {
+          setPhase("dashboard");
         }
-  
-        setPhase("dashboard");
         return next;
       });
     } else {
@@ -553,11 +548,13 @@ return [...q, newTask];
     setQueue((q) => q.filter((t) => t.id !== activeTask.id));
   
     if (correct) {
-      const gained = 150 + shift * 10;
+      const gained = Math.round(
+        (150 + shift * 10) * getSafetyMultiplier()
+      );
   
       setScore((s) => s + gained);
       setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
-      setOverflowStacks(0);
+      
   
       setTasksDone((d) => {
         const next = d + 1;
@@ -589,17 +586,27 @@ return [...q, newTask];
     setQueue((q) => q.filter((t) => t.id !== activeTask.id));
 
     if (correct) {
-      setOverflowStacks(0);
+      
       const priorityBonus =
   activeTask.priority === "HIGH" ? 80 :
   activeTask.priority === "MEDIUM" ? 40 :
   0;
 
-const gained = 100 + shift * 10 + priorityBonus;
+const safetyMultiplier =
+  factorySafety >= 90 ? 1.5 :
+  factorySafety >= 70 ? 1.3 :
+  factorySafety >= 50 ? 1.1 :
+  factorySafety >= 30 ? 1.0 :
+  0.8;
+
+const gained = Math.round(
+  (100 + shift * 10 + priorityBonus) * safetyMultiplier
+);
       const rareRoll = Math.random();
-let successBanner = `✅ เคลียร์งาน +${gained}`;
+      let successBanner = `✅ เคลียร์งาน +${gained} / Safety +1`;
 
 setScore((s) => s + gained);
+setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
 
 if (rareRoll < 0.04) {
   setFactorySafety((s) => Math.min(MAX_SAFETY, s + 10));
@@ -639,21 +646,31 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
     setQueue((q) => q.filter((t) => t.id !== activeTask.id));
   
     if (correct) {
-      setOverflowStacks(0);
+      
   
       const priorityBonus =
         activeTask.priority === "HIGH" ? 80 :
         activeTask.priority === "MEDIUM" ? 40 :
         0;
   
-      const gained = 100 + shift * 10 + priorityBonus;
+      const safetyMultiplier =
+  factorySafety >= 90 ? 1.5 :
+  factorySafety >= 70 ? 1.3 :
+  factorySafety >= 50 ? 1.1 :
+  factorySafety >= 30 ? 1.0 :
+  0.8;
+
+const gained = Math.round(
+  (100 + shift * 10 + priorityBonus) * safetyMultiplier
+);
   
       setScore((s) => s + gained);
+      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
   
       setTasksDone((d) => {
         const next = d + 1;
   
-        setBanner(`✅ Permit ผ่าน! ${activeDocumentCase.reason} +${gained}`);
+        setBanner(`✅ Permit ผ่าน! ${activeDocumentCase.reason} +${gained} / Safety +2`);
   
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
@@ -756,7 +773,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     const target = queue[0];
   
     setQueue((q) => q.slice(1));
-    setOverflowStacks(0);
+    
   
     const gained = 100 + shift * 10;
     setScore((s) => s + gained);
@@ -835,7 +852,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
         {banner}
       </div>
       <div className="font-game text-white/45 text-xs">
-        Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
+      Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)} 
       </div>
     </div>
   </div>
@@ -849,13 +866,30 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
         {phase === "dashboard" && (
           <Dashboard
           queue={queue}
+          maxQueue={Math.min(QUEUE_MAX + queueBonus, 4 + Math.floor(shift / 2) + queueBonus)}
           walkingRequest={walkingRequest}
           onOpen={openTask}
           onAnswerWalkingRequest={answerWalkingRequest}
         />
         )}
-
+        {phase === "resolve" && queue.length > 0 && (
+  <div className="absolute left-3 right-3 top-2 z-40 text-center pointer-events-none">
+    <div
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 font-game font-black text-[clamp(0.75rem,3.2vw,0.95rem)] ${
+        Math.min(...queue.map((t) => t.timeLeft)) <= 10
+          ? "animate-pulse border-red-300 bg-red-600 text-white shadow-[0_0_18px_rgba(248,113,113,0.75)]"
+          : Math.min(...queue.map((t) => t.timeLeft)) <= 20
+          ? "border-yellow-300 bg-yellow-300 text-slate-950"
+          : "border-white/20 bg-black/45 text-white"
+      }`}
+    >
+      <span>⏰ Mistake in</span>
+      <span>{Math.ceil(Math.min(...queue.map((t) => t.timeLeft)))}s</span>
+    </div>
+  </div>
+)}
 {phase === "resolve" && activeTask && activeDocumentCase && (
+  
   <DocumentReviewTask
     caseData={activeDocumentCase}
     onComplete={answerDocumentReview}
@@ -894,12 +928,62 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     }}
   />
 )}
+{phase === "resolve" && activeTask && activeSafetySwipeTask && (
+  <SafetySwipeLiteTask
+    onComplete={(correctCount) => {
+      const success = correctCount >= 3;
 
+      setQueue((q) => q.filter((t) => t.id !== activeTask.id));
+
+      if (success) {
+        const gained = Math.round(
+          (120 + shift * 10) *
+          getSafetyMultiplier()
+        );
+
+        setScore((s) => s + gained);
+        setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
+
+        setTasksDone((d) => {
+          const next = d + 1;
+
+          setBanner(
+            `🦺 Safety Coaching ${correctCount}/5 +${gained} / Safety +1`
+          );
+
+          if (next > 0 && next % SHIFT_EVERY === 0) {
+            setShift((sh) => sh + 1);
+            window.setTimeout(() => setPhase("training"), 350);
+          } else {
+            setPhase("dashboard");
+          }
+
+          return next;
+        });
+      } else {
+        damageFactory(10, `Safety Coaching ${correctCount}/5`);
+        setPhase("dashboard");
+      }
+
+      setActiveTask(null);
+      setActiveSafetySwipeTask(false);
+    }}
+    onBack={() => {
+      setActiveTask(null);
+      setActiveDocumentCase(null);
+      setActiveAccidentTask(false);
+      setActiveSpotHazardTask(false);
+      setActiveSafetySwipeTask(false);
+      setPhase("dashboard");
+    }}
+  />
+)}
 {phase === "resolve" &&
   activeTask &&
   !activeDocumentCase &&
   !activeSpotHazardTask &&
-  !activeAccidentTask && (
+  !activeAccidentTask &&
+!activeSafetySwipeTask && (
     <ResolveTask
       task={activeTask}
       onAnswer={answerTask}
@@ -940,141 +1024,90 @@ function Hud({ label, value }: { label: string; value: string }) {
 
 function Dashboard({
   queue,
+  maxQueue,
   walkingRequest,
   onOpen,
   onAnswerWalkingRequest,
 }: {
   queue: Task[];
+  maxQueue: number;
   walkingRequest: WalkingRequest | null;
   onOpen: (task: Task) => void;
   onAnswerWalkingRequest: (index: number) => void;
 }) {
   const urgentTask = queue[0];
-  const deskPressure = Math.min(100, (queue.length / 5) * 100);
-  const isOverload = queue.length >= 4;
+  const deskPressure = Math.min(100, (queue.length / maxQueue) * 100);
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="relative flex-1 overflow-hidden rounded-[30px] border border-white/10 bg-slate-950/70">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#2DAABE33,transparent_55%)]" />
-
-        <div className="absolute left-3 top-3 z-10 rounded-2xl bg-black/45 px-3 py-2">
-          <div className="font-game font-black text-white text-xl">
-          SAFETY OPERATIONS CENTER
-          </div>
-          <div className="font-game text-white/60 text-sm">
-            {isOverload ? "งานล้นโต๊ะแล้ว!" : "เลือกงานและควบคุมความเสี่ยง"}
-          </div>
-        </div>
-
-        {isOverload && (
-          <div className="absolute left-3 right-3 top-24 z-20 rounded-2xl border-4 border-red-500 bg-red-950/85 px-3 py-2 text-center animate-pulse">
-            <div className="font-game font-black text-red-300 text-[clamp(1.1rem,5vw,1.5rem)]">
-              🚨 DESK OVERLOAD
-            </div>
-            <div className="font-game text-white text-sm">
-              งานล้นโต๊ะ รีบเลือกงานด่วน!
-            </div>
-          </div>
-        )}
-
-        <div className="absolute bottom-4 left-3 right-3 z-10">
-
-        </div>
-
-        {walkingRequest && (
-          <div className="absolute inset-x-3 bottom-36 z-30 rounded-[26px] border-4 border-yellow-300 bg-slate-950/95 p-3 shadow-[0_0_30px_rgba(250,204,21,0.35)] animate-bounce">
-            <div className="flex items-center gap-3">
-              <div className="text-5xl">{walkingRequest.icon}</div>
-
-              <div className="min-w-0 flex-1">
-                <div className="font-game font-black text-yellow-300 text-[clamp(1rem,4.5vw,1.3rem)]">
-                  {walkingRequest.title}
-                </div>
-                <div className="font-game font-black text-white text-[clamp(0.95rem,4vw,1.15rem)] leading-tight">
-                  {walkingRequest.question}
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {walkingRequest.choices.map((choice, index) => (
-                <button
-                  key={choice}
-                  onClick={() => onAnswerWalkingRequest(index)}
-                  className="rounded-2xl bg-[#2DAABE] px-3 py-4 font-game font-black text-white text-[clamp(0.95rem,4vw,1.1rem)] active:scale-95"
-                >
-                  {choice}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-[26px] border border-white/10 bg-black/45 p-3">
-        <div className="mb-2 h-3 overflow-hidden rounded-full bg-black/50">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col rounded-[26px] border border-white/10 bg-black/45 p-3">
+        <div className="mb-2 h-3 shrink-0 overflow-hidden rounded-full bg-black/50">
           <div
             className="h-full rounded-full bg-red-500 transition-all"
             style={{ width: `${deskPressure}%` }}
           />
         </div>
 
-        <div className="mb-2 flex items-center justify-between">
+        <div className="mb-2 flex shrink-0 items-center justify-between">
           <div className="font-game font-black text-yellow-300">
-          ACTIVE TASKS
+            QUEUE
           </div>
+
           <div className="font-game text-white/45 text-xs">
-            PRESSURE {Math.round(deskPressure)}%
+            {queue.length}/{maxQueue}
           </div>
         </div>
 
         {urgentTask && (
           <button
             onClick={() => onOpen(urgentTask)}
-            className="mb-2 w-full rounded-[24px] border-4 border-yellow-300 bg-yellow-300/15 p-3 text-left active:scale-95"
+            className="mb-2 w-full shrink-0 rounded-[24px] border-4 border-yellow-300 bg-yellow-300/15 p-3 text-left active:scale-95"
           >
             <div className="flex items-center justify-between gap-2">
               <div className="font-game font-black text-yellow-300 text-lg">
-             {urgentTask.icon} {urgentTask.title}
+                {urgentTask.icon} {urgentTask.title}
               </div>
+
               <div className="font-game font-black text-red-300">
                 {Math.ceil(urgentTask.timeLeft)}s
               </div>
             </div>
+
             <div className="font-game text-white/70 text-sm">
               {urgentTask.desc}
             </div>
           </button>
         )}
 
-        <div className="grid gap-2">
-          {queue.slice(1).map((task) => (
-            <button
-              key={task.id}
-              onClick={() => onOpen(task)}
-              className="rounded-2xl border border-white/10 bg-white/10 p-3 text-left active:scale-95"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <div className="font-game font-black text-white">
-                  {task.icon} {task.title}
-                </div>
-                <div className="font-game font-black text-red-300">
-                  {Math.ceil(task.timeLeft)}s
-                </div>
-              </div>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="grid gap-2">
+            {queue.slice(1).map((task) => (
+              <button
+                key={task.id}
+                onClick={() => onOpen(task)}
+                className="rounded-2xl border border-white/10 bg-white/10 p-3 text-left active:scale-95"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-game font-black text-white">
+                    {task.icon} {task.title}
+                  </div>
 
-              <div className="font-game text-white/60 text-sm">
-                {task.desc}
-              </div>
-            </button>
-          ))}
+                  <div className="font-game font-black text-red-300">
+                    {Math.ceil(task.timeLeft)}s
+                  </div>
+                </div>
+
+                <div className="font-game text-white/60 text-sm">
+                  {task.desc}
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
   );
 }
-
 function ResolveTask({
   task,
   onAnswer,
