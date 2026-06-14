@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PauseButton, { usePause } from "../components/PauseButton";
+import DocumentReviewTask from "./endless/DocumentReviewTask";
+import {
+  generateDocumentReviewCase,
+  type DocumentReviewCase,
+  type DocumentReviewAction,
+} from "../data/endless/documentReviewCases";
+import AccidentInvestigateTask from "./endless/AccidentInvestigateTask";
+import SpotHazardTask from "./endless/SpotHazardTask";
 
 type Props = {
   onComplete: (score: number, highScore: number) => void;
@@ -66,9 +74,34 @@ type WalkingRequest = {
 const MAX_MISTAKES = 5;
 const MAX_SAFETY = 100;
 const SHIFT_EVERY = 10;
-const SHIFT_TARGET = 10;
 const QUEUE_MAX = 5;
+const DOCUMENT_TASK_TYPES: TaskType[] = [
+  "LEGAL_CHECK",
+  "JSA",
+  "PROJECT_REVIEW",
+  "SAFETY_MANUAL",
+  "STAT_REPORT",
+  "OTHER_TASK",
+];
 
+const INSPECTION_TASK_TYPES: TaskType[] = [
+  "SAFETY_AUDIT",
+  "RISK_ASSESSMENT",
+  "ENV_MEASURE",
+  "OCC_HEALTH",
+];
+
+const INVESTIGATION_TASK_TYPES: TaskType[] = [
+  "INCIDENT_INVESTIGATION",
+  "SYSTEM_IMPROVE",
+];
+
+function getTaskGroup(type: TaskType) {
+  if (DOCUMENT_TASK_TYPES.includes(type)) return "DOCUMENT";
+  if (INSPECTION_TASK_TYPES.includes(type)) return "INSPECTION";
+  if (INVESTIGATION_TASK_TYPES.includes(type)) return "INVESTIGATION";
+  return "COACHING";
+}
 const TASK_BANK: Omit<Task, "id" | "priority" | "timeLeft" | "maxTime">[] = [
   {
     type: "LEGAL_CHECK",
@@ -258,7 +291,39 @@ function pickPriority(): TaskPriority {
   if (r < 0.55) return "MEDIUM";
   return "LOW";
 }
+function getEndlessTaskDisplay(type: TaskType) {
+  const group = getTaskGroup(type);
 
+  if (group === "DOCUMENT") {
+    return {
+      icon: "📄",
+      title: "Work Permit Review",
+      desc: "เปิด Work Permit",
+    };
+  }
+
+  if (group === "INSPECTION") {
+    return {
+      icon: "🔍",
+      title: "Area Inspection",
+      desc: "ตรวจสอบหน้างาน",
+    };
+  }
+
+  if (group === "INVESTIGATION") {
+    return {
+      icon: "🚨",
+      title: "Accident Investigation",
+      desc: "สอบสวนอุบัติเหตุ",
+    };
+  }
+
+  return {
+    icon: "🎓",
+    title: "Safety Coaching",
+    desc: "ตอบคำถามหน้างาน",
+  };
+}
 function makeTask(extraTime = 0, shift = 1): Task {
   const base = pick(TASK_BANK);
   const priority = pickPriority();
@@ -272,19 +337,25 @@ function makeTask(extraTime = 0, shift = 1): Task {
     15 + extraTime + priorityBonus - shiftPenalty + Math.floor(Math.random() * 5)
   );
 
-  return {
-    ...base,
-    priority,
-    id: `${base.type}-${Date.now()}-${Math.random()}`,
-    timeLeft: maxTime,
-    maxTime,
-  };
+  const display = getEndlessTaskDisplay(base.type);
+
+return {
+  ...base,
+  ...display,
+  priority,
+  id: `${base.type}-${Date.now()}-${Math.random()}`,
+  timeLeft: maxTime,
+  maxTime,
+};
 }
 
 export default function EndlessMode({ onComplete, onExit }: Props) {
   const [phase, setPhase] = useState<Phase>("dashboard");
   const [queue, setQueue] = useState<Task[]>(() => [makeTask(0, 1)]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
+  const [activeDocumentCase, setActiveDocumentCase] = useState<DocumentReviewCase | null>(null);
+  const [activeAccidentTask, setActiveAccidentTask] = useState(false);
+  const [activeSpotHazardTask, setActiveSpotHazardTask] = useState(false);
   const [walkingRequest, setWalkingRequest] = useState<WalkingRequest | null>(null);
   const [score, setScore] = useState(0);
   const [factorySafety, setFactorySafety] = useState(MAX_SAFETY);
@@ -426,9 +497,90 @@ return [...q, newTask];
 
   const openTask = (task: Task) => {
     setActiveTask(task);
+  
+    setActiveDocumentCase(null);
+    setActiveAccidentTask(false);
+    setActiveSpotHazardTask(false);
+  
+    const group = getTaskGroup(task.type);
+  
+    if (group === "DOCUMENT") {
+      setActiveDocumentCase(generateDocumentReviewCase());
+    }
+  
+    if (group === "INSPECTION") {
+      setActiveSpotHazardTask(true);
+    }
+  
+    if (group === "INVESTIGATION") {
+      setActiveAccidentTask(true);
+    }
+  
     setPhase("resolve");
   };
-
+  const answerAccidentTask = (correct: boolean) => {
+    if (!activeTask) return;
+  
+    setQueue((q) => q.filter((t) => t.id !== activeTask.id));
+  
+    if (correct) {
+      const gained = 200 + shift * 10;
+      setScore((s) => s + gained);
+      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 3));
+  
+      setTasksDone((d) => {
+        const next = d + 1;
+        setBanner(`📋 ROOT CAUSE FOUND! +${gained} / Safety +3`);
+  
+        if (next > 0 && next % SHIFT_EVERY === 0) {
+          setShift((sh) => sh + 1);
+        }
+  
+        setPhase("dashboard");
+        return next;
+      });
+    } else {
+      damageFactory(10, "สรุปสาเหตุผิด");
+      setPhase("dashboard");
+    }
+  
+    setActiveTask(null);
+    setActiveAccidentTask(false);
+  };
+  const answerSpotHazardTask = (correct: boolean) => {
+    if (!activeTask) return;
+  
+    setQueue((q) => q.filter((t) => t.id !== activeTask.id));
+  
+    if (correct) {
+      const gained = 150 + shift * 10;
+  
+      setScore((s) => s + gained);
+      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
+      setOverflowStacks(0);
+  
+      setTasksDone((d) => {
+        const next = d + 1;
+  
+        setBanner(`🔍 HAZARD CONTROLLED! +${gained} / Safety +2`);
+  
+        if (next > 0 && next % SHIFT_EVERY === 0) {
+          setShift((sh) => sh + 1);
+          window.setTimeout(() => setPhase("training"), 350);
+        } else {
+          setPhase("dashboard");
+        }
+  
+        return next;
+      });
+    } else {
+      damageFactory(10, "ตรวจหน้างานผิด");
+      setPhase("dashboard");
+    }
+  
+    setActiveTask(null);
+    setActiveSpotHazardTask(false);
+  };
   const answerTask = (choiceIndex: number) => {
     if (!activeTask) return;
 
@@ -479,7 +631,47 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
 
     setActiveTask(null);
   };
-
+  const answerDocumentReview = (action: DocumentReviewAction) => {
+    if (!activeTask || !activeDocumentCase) return;
+  
+    const correct = action === activeDocumentCase.correctAction;
+  
+    setQueue((q) => q.filter((t) => t.id !== activeTask.id));
+  
+    if (correct) {
+      setOverflowStacks(0);
+  
+      const priorityBonus =
+        activeTask.priority === "HIGH" ? 80 :
+        activeTask.priority === "MEDIUM" ? 40 :
+        0;
+  
+      const gained = 100 + shift * 10 + priorityBonus;
+  
+      setScore((s) => s + gained);
+  
+      setTasksDone((d) => {
+        const next = d + 1;
+  
+        setBanner(`✅ Permit ผ่าน! ${activeDocumentCase.reason} +${gained}`);
+  
+        if (next > 0 && next % SHIFT_EVERY === 0) {
+          setShift((sh) => sh + 1);
+          window.setTimeout(() => setPhase("training"), 350);
+        } else {
+          setPhase("dashboard");
+        }
+  
+        return next;
+      });
+    } else {
+      damageFactory(activeTask.priority === "HIGH" ? 15 : 10, activeDocumentCase.reason);
+      setPhase("dashboard");
+    }
+  
+    setActiveTask(null);
+    setActiveDocumentCase(null);
+  };
   const chooseTraining = (training: Training) => {
     if (training.id === "ASSISTANT") {
       setAssistCharges((x) => x + 2);
@@ -590,76 +782,70 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
           "radial-gradient(circle at top, #145b6b 0%, #071827 42%, #030712 100%)",
       }}
     >
-      <div className="relative z-10 px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="font-game text-white/45 text-xs">SAFETY OFFICER DUTY</div>
-            <div className="font-game font-black text-white text-[clamp(1.4rem,6vw,1.9rem)]">
-              SHIFT {shift}
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <PauseButton paused={paused} onToggle={togglePause} />
-            {onExit && (
-              <button onClick={onExit} className="rounded-2xl bg-white/10 px-3 py-2 font-game text-white">
-                ออก
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-2 grid grid-cols-5 gap-2">
-  <Hud label="SAFETY" value={`${factorySafety}%`} />
-
-  <Hud
-    label="MISTAKE"
-    value={`${"💥".repeat(Math.min(mistakes, MAX_MISTAKES))}${"·".repeat(
-      Math.max(0, MAX_MISTAKES - mistakes)
-    )}`}
-  />
-
-  <Hud label="SCORE" value={String(score)} />
-
-  <button
-    onClick={useAssist}
-    disabled={assistCharges <= 0 || phase !== "dashboard"}
-    className="rounded-2xl border border-white/10 bg-yellow-300/20 px-2 py-2 text-center disabled:opacity-40 active:scale-95"
-  >
-    <div className="font-game text-white/45 text-[10px]">
-      ASSIST
-    </div>
-
-    <div className="font-game font-black text-yellow-300 text-[clamp(0.9rem,4vw,1.25rem)]">
-      👷x{assistCharges}
-    </div>
-  </button>
-  <button
-  onClick={devClearTask}
-  className="rounded-2xl border border-pink-300/40 bg-pink-500/20 px-2 py-2 text-center active:scale-95"
->
-  <div className="font-game text-white/45 text-[10px]">
-    DEV
-  </div>
-
-  <div className="font-game font-black text-pink-200">
-    CLEAR
-  </div>
-</button>
-
-</div>
-
-        <div className="mt-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-center">
-          <div className="font-game font-black text-yellow-300 text-[clamp(0.95rem,4vw,1.15rem)]">
-            {banner}
-          </div>
-          <div className="font-game text-white/45 text-xs">
-          Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
-          </div>
+{phase === "dashboard" && (
+  <div className="relative z-10 px-4 pt-3 pb-2">
+    <div className="flex items-center justify-between">
+      <div>
+        <div className="font-game text-white/45 text-xs">SAFETY OFFICER DUTY</div>
+        <div className="font-game font-black text-white text-[clamp(1.4rem,6vw,1.9rem)]">
+          SHIFT {shift}
         </div>
       </div>
 
-      <div className="relative z-10 flex-1 min-h-0 px-3 pb-3">
+      <div className="flex gap-2">
+        <PauseButton paused={paused} onToggle={togglePause} />
+        {onExit && (
+          <button
+            onClick={onExit}
+            className="rounded-2xl bg-white/10 px-3 py-2 font-game text-white"
+          >
+            ออก
+          </button>
+        )}
+      </div>
+    </div>
+
+    <div className="mt-2 grid grid-cols-5 gap-2">
+      <Hud label="SAFETY" value={`${factorySafety}%`} />
+      <Hud label="MISTAKE" value={`${mistakes}/${MAX_MISTAKES}`} />
+      <Hud label="SCORE" value={String(score)} />
+
+      <button
+        onClick={useAssist}
+        disabled={assistCharges <= 0 || phase !== "dashboard"}
+        className="rounded-2xl border border-white/10 bg-yellow-300/20 px-2 py-2 text-center disabled:opacity-40 active:scale-95"
+      >
+        <div className="font-game text-white/45 text-[10px]">ASSIST</div>
+        <div className="font-game font-black text-yellow-300 text-[clamp(0.9rem,4vw,1.25rem)]">
+          👷x{assistCharges}
+        </div>
+      </button>
+
+      <button
+        onClick={devClearTask}
+        className="rounded-2xl border border-pink-300/40 bg-pink-500/20 px-2 py-2 text-center active:scale-95"
+      >
+        <div className="font-game text-white/45 text-[10px]">DEV</div>
+        <div className="font-game font-black text-pink-200">CLEAR</div>
+      </button>
+    </div>
+
+    <div className="mt-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-center">
+      <div className="font-game font-black text-yellow-300 text-[clamp(0.95rem,4vw,1.15rem)]">
+        {banner}
+      </div>
+      <div className="font-game text-white/45 text-xs">
+        Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
+      </div>
+    </div>
+  </div>
+)}
+<div
+  className={`relative z-10 flex-1 min-h-0 ${
+    phase === "dashboard" ? "px-3 pb-3" : "px-0 pb-0"
+  }`}
+>
+        
         {phase === "dashboard" && (
           <Dashboard
           queue={queue}
@@ -669,9 +855,57 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
         />
         )}
 
-        {phase === "resolve" && activeTask && (
-          <ResolveTask task={activeTask} onAnswer={answerTask} onBack={() => setPhase("dashboard")} />
-        )}
+{phase === "resolve" && activeTask && activeDocumentCase && (
+  <DocumentReviewTask
+    caseData={activeDocumentCase}
+    onComplete={answerDocumentReview}
+    onBack={() => {
+      setActiveTask(null);
+      setActiveDocumentCase(null);
+      setActiveAccidentTask(false);
+      setActiveSpotHazardTask(false);
+      setPhase("dashboard");
+    }}
+  />
+)}
+
+{phase === "resolve" && activeTask && activeSpotHazardTask && (
+  <SpotHazardTask
+    onComplete={answerSpotHazardTask}
+    onBack={() => {
+      setActiveTask(null);
+      setActiveDocumentCase(null);
+      setActiveAccidentTask(false);
+      setActiveSpotHazardTask(false);
+      setPhase("dashboard");
+    }}
+  />
+)}
+
+{phase === "resolve" && activeTask && activeAccidentTask && (
+  <AccidentInvestigateTask
+    onComplete={answerAccidentTask}
+    onBack={() => {
+      setActiveTask(null);
+      setActiveDocumentCase(null);
+      setActiveAccidentTask(false);
+      setActiveSpotHazardTask(false);
+      setPhase("dashboard");
+    }}
+  />
+)}
+
+{phase === "resolve" &&
+  activeTask &&
+  !activeDocumentCase &&
+  !activeSpotHazardTask &&
+  !activeAccidentTask && (
+    <ResolveTask
+      task={activeTask}
+      onAnswer={answerTask}
+      onBack={() => setPhase("dashboard")}
+    />
+  )}
 
         {phase === "training" && (
           <TrainingSelect choices={trainingChoices} onChoose={chooseTraining} />
@@ -726,10 +960,10 @@ function Dashboard({
 
         <div className="absolute left-3 top-3 z-10 rounded-2xl bg-black/45 px-3 py-2">
           <div className="font-game font-black text-white text-xl">
-            FACTORY OFFICE
+          SAFETY OPERATIONS CENTER
           </div>
           <div className="font-game text-white/60 text-sm">
-            {isOverload ? "DESK OVERLOAD!! งานล้นโต๊ะแล้ว!" : "งานเดินเข้าโต๊ะ จป. แล้ว!"}
+            {isOverload ? "งานล้นโต๊ะแล้ว!" : "เลือกงานและควบคุมความเสี่ยง"}
           </div>
         </div>
 
@@ -745,56 +979,7 @@ function Dashboard({
         )}
 
         <div className="absolute bottom-4 left-3 right-3 z-10">
-          <div className="mb-3 flex items-end justify-between text-5xl">
-            <div className="animate-bounce">👷</div>
 
-            <div className="rounded-[24px] border-4 border-yellow-300 bg-black/70 px-4 py-3 text-center shadow-[0_0_25px_rgba(250,204,21,0.35)]">
-              <div className="text-4xl">🧑‍💼</div>
-              <div className="font-game font-black text-yellow-300 text-xs">
-                SAFETY DESK
-              </div>
-            </div>
-
-            <div className="animate-pulse">🚜</div>
-            <div>👔</div>
-          </div>
-
-          <div className="relative h-28 rounded-[26px] border border-white/10 bg-black/40 overflow-hidden">
-            <div className="absolute left-2 top-2 font-game text-white/45 text-xs">
-              LIVE TASK FLOW
-            </div>
-
-            {queue.slice(0, 5).map((task, index) => (
-              <button
-                key={task.id}
-                onClick={() => onOpen(task)}
-                className={`absolute top-9 rounded-2xl border px-3 py-2 text-left active:scale-95 ${
-                  task.priority === "HIGH"
-                    ? "border-red-400 bg-red-500/25"
-                    : task.priority === "MEDIUM"
-                    ? "border-yellow-300/60 bg-yellow-300/20"
-                    : "border-white/20 bg-white/15"
-                }`}
-                style={{
-                  left: `${Math.min(72, index * 18)}%`,
-                  transform: `translateX(-${index * 6}px)`,
-                }}
-              >
-                <div className="font-game font-black text-white text-[clamp(0.75rem,3.2vw,0.95rem)] whitespace-nowrap">
-                  {task.icon} {task.title}
-                </div>
-                <div className="font-game font-black text-red-300 text-xs">
-                  {Math.ceil(task.timeLeft)}s
-                </div>
-              </button>
-            ))}
-
-            {queue.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center font-game font-black text-white/45">
-                โต๊ะโล่ง... แปลก ๆ นะ จป.
-              </div>
-            )}
-          </div>
         </div>
 
         {walkingRequest && (
@@ -837,7 +1022,7 @@ function Dashboard({
 
         <div className="mb-2 flex items-center justify-between">
           <div className="font-game font-black text-yellow-300">
-            PRIORITY DESK
+          ACTIVE TASKS
           </div>
           <div className="font-game text-white/45 text-xs">
             PRESSURE {Math.round(deskPressure)}%
@@ -851,7 +1036,7 @@ function Dashboard({
           >
             <div className="flex items-center justify-between gap-2">
               <div className="font-game font-black text-yellow-300 text-lg">
-                🔥 NEXT: {urgentTask.icon} {urgentTask.title}
+             {urgentTask.icon} {urgentTask.title}
               </div>
               <div className="font-game font-black text-red-300">
                 {Math.ceil(urgentTask.timeLeft)}s
@@ -874,19 +1059,6 @@ function Dashboard({
                 <div className="font-game font-black text-white">
                   {task.icon} {task.title}
                 </div>
-
-                <div
-                  className={`rounded-full px-2 py-1 font-game text-[10px] font-black ${
-                    task.priority === "HIGH"
-                      ? "bg-red-500 text-white"
-                      : task.priority === "MEDIUM"
-                      ? "bg-yellow-300 text-slate-950"
-                      : "bg-green-400 text-slate-950"
-                  }`}
-                >
-                  {task.priority}
-                </div>
-
                 <div className="font-game font-black text-red-300">
                   {Math.ceil(task.timeLeft)}s
                 </div>
