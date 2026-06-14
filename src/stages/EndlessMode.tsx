@@ -1035,7 +1035,6 @@ function Dashboard({
   onOpen: (task: Task) => void;
   onAnswerWalkingRequest: (index: number) => void;
 }) {
-  const urgentTask = queue[0];
   const deskPressure = Math.min(100, (queue.length / maxQueue) * 100);
 
   return (
@@ -1049,46 +1048,30 @@ function Dashboard({
         </div>
 
         <div className="mb-2 flex shrink-0 items-center justify-between">
-          <div className="font-game font-black text-yellow-300">
-            QUEUE
-          </div>
-
+          <div className="font-game font-black text-yellow-300">QUEUE</div>
           <div className="font-game text-white/45 text-xs">
             {queue.length}/{maxQueue}
           </div>
         </div>
 
-        {urgentTask && (
-          <button
-            onClick={() => onOpen(urgentTask)}
-            className="mb-2 w-full shrink-0 rounded-[24px] border-4 border-yellow-300 bg-yellow-300/15 p-3 text-left active:scale-95"
-          >
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-game font-black text-yellow-300 text-lg">
-                {urgentTask.icon} {urgentTask.title}
-              </div>
-
-              <div className="font-game font-black text-red-300">
-                {Math.ceil(urgentTask.timeLeft)}s
-              </div>
-            </div>
-
-            <div className="font-game text-white/70 text-sm">
-              {urgentTask.desc}
-            </div>
-          </button>
-        )}
-
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <div className="grid gap-2">
-            {queue.slice(1).map((task) => (
+        <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
+          <div className="grid gap-2 pb-6">
+            {queue.map((task, index) => (
               <button
                 key={task.id}
                 onClick={() => onOpen(task)}
-                className="rounded-2xl border border-white/10 bg-white/10 p-3 text-left active:scale-95"
+                className={`w-full rounded-[24px] p-3 text-left active:scale-95 ${
+                  index === 0
+                    ? "border-4 border-yellow-300 bg-yellow-300/15"
+                    : "border border-white/10 bg-white/10"
+                }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="font-game font-black text-white">
+                  <div
+                    className={`font-game font-black ${
+                      index === 0 ? "text-yellow-300 text-lg" : "text-white"
+                    }`}
+                  >
                     {task.icon} {task.title}
                   </div>
 
@@ -1097,7 +1080,7 @@ function Dashboard({
                   </div>
                 </div>
 
-                <div className="font-game text-white/60 text-sm">
+                <div className="font-game text-white/70 text-sm">
                   {task.desc}
                 </div>
               </button>
