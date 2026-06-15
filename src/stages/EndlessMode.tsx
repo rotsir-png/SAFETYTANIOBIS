@@ -667,7 +667,6 @@ window.setTimeout(() => setScreenShake(false), 120);
       setScore((s) => s + gained);
       pop(`+${gained}`, "good");
       healSafety(2);
-      
   
       setTasksDone((d) => {
         const next = d + 1;
@@ -689,7 +688,10 @@ window.setTimeout(() => setScreenShake(false), 120);
     }
   
     setActiveTask(null);
+    setActiveDocumentCase(null);
+    setActiveAccidentTask(false);
     setActiveSpotHazardTask(false);
+    setActiveSafetySwipeTask(false);
   };
   const answerTask = (choiceIndex: number) => {
     if (!activeTask) return;

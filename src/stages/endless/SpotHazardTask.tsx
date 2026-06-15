@@ -88,6 +88,11 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       onComplete(true);
     }, 220);
   };
+  const finishWrong = () => {
+    window.setTimeout(() => {
+      onComplete(false);
+    }, 260);
+  };
 
   const answer = (type: ObjType) => {
     if (!selected) return;
@@ -98,12 +103,13 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       setMsg("ผิด! อันนี้ปลอดภัยอยู่แล้ว");
       setFlashType("wrong");
       setScreenShake(true);
-
+    
       window.setTimeout(() => setFlashType(null), 180);
       window.setTimeout(() => setScreenShake(false), 260);
-
+    
       setSelected(null);
       showPopup("Mistake +1 / Safety -10%", "#ef4444", 50, 55);
+      finishWrong();
       return;
     }
 
@@ -111,12 +117,13 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       setMsg("ผิดประเภท! ดูให้ดีว่าเป็น Action หรือ Condition");
       setFlashType("wrong");
       setScreenShake(true);
-
+    
       window.setTimeout(() => setFlashType(null), 180);
       window.setTimeout(() => setScreenShake(false), 260);
-
+    
       setSelected(null);
       showPopup("Mistake +1 / Safety -10%", "#ef4444", 50, 55);
+      finishWrong();
       return;
     }
 
