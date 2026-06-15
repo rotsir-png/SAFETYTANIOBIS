@@ -28,7 +28,11 @@ export default function TitleScreen({
   const [endlessPopFeedback, setEndlessPopFeedback] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(isSoundEnabled());
 
-  const isEndlessUnlocked = true;
+  const isEndlessUnlocked =
+  ENDLESS_ENABLED &&
+  ENDLESS_REQUIRES_STAGES.every((stageId) =>
+    progress.passedStages.includes(stageId)
+  );
 
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 50);
@@ -204,11 +208,15 @@ export default function TitleScreen({
               style={{ background: 'rgba(0,0,0,0.9)' }}
             >
               <span
-                className="font-game text-yellow-300 text-center px-4"
-                style={{ fontSize: 'clamp(1.15rem, 4.5vw, 1.4rem)' }}
-              >
-                Endless Mode จะเปิดเร็ว ๆ นี้
-              </span>
+  className="font-game text-yellow-300 text-center px-4"
+  style={{ fontSize: 'clamp(1.15rem, 4.5vw, 1.4rem)' }}
+>
+  <>
+    ผ่านด่าน 1-3 ก่อน
+    <br />
+    จึงจะปลดล็อก Endless Mode
+  </>
+</span>
             </div>
           )}
         </div>
