@@ -452,9 +452,13 @@ export default function Stage2PPERush({ onComplete }: Props) {
                     }}
                   >
                     <img
-                      src={obj.image}
-                      alt={obj.label}
-                      draggable={false}
+  src={encodeURI(obj.image)}
+  alt={obj.label}
+  draggable={false}
+  loading="eager"
+  onError={(e) => {
+    console.error("IMAGE FAIL", obj.image, encodeURI(obj.image));
+  }}
                       className="absolute left-1/2 top-1/2 object-contain pointer-events-none select-none"
                       style={{
                         width: obj.size,

@@ -1,24 +1,70 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { type ObjType, type SceneObject } from "../../data/stage2Objects";
 import { rand, makeScene } from "../../data/stage2Scene";
-
+import ScorePopupLayer, { useScorePopup } from "../../components/ScorePopup";
 type Props = {
   onComplete: (correct: boolean) => void;
   onBack: () => void;
 };
 
 const TARGET_HAZARDS = 3;
+function SafeImage({
+  src,
+  alt,
+  className,
+  style,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  const [retry, setRetry] = useState(0);
+
+  return (
+    <img
+      key={`${src}-${retry}`}
+      src={`${encodeURI(src)}?r=${retry}`}
+      alt={alt}
+      draggable={false}
+      loading="eager"
+      className={className}
+      style={style}
+      onError={() => {
+        if (retry < 3) {
+          window.setTimeout(() => setRetry((x) => x + 1), 250);
+        }
+      }}
+    />
+  );
+}
 
 export default function SpotHazardTask({ onComplete, onBack }: Props) {
   const [sceneObjects, setSceneObjects] = useState<SceneObject[]>(() => makeScene());
   const [selected, setSelected] = useState<SceneObject | null>(null);
   const [bgIndex] = useState(rand(1, 4));
+  const [assetReloadKey, setAssetReloadKey] = useState(0);
   const [foundCount, setFoundCount] = useState(0);
   const [msg, setMsg] = useState("ตรวจหน้างาน หา Hazard ให้ครบ 3 จุด");
   const [screenShake, setScreenShake] = useState(false);
   const [flashType, setFlashType] = useState<"correct" | "wrong" | null>(null);
   const [removingIds, setRemovingIds] = useState<string[]>([]);
-
+  const { popups, showPopup } = useScorePopup();
+  useEffect(() => {
+    const reloadAssets = () => {
+      if (!document.hidden) {
+        setAssetReloadKey((x) => x + 1);
+      }
+    };
+  
+    document.addEventListener("visibilitychange", reloadAssets);
+    window.addEventListener("focus", reloadAssets);
+  
+    return () => {
+      document.removeEventListener("visibilitychange", reloadAssets);
+      window.removeEventListener("focus", reloadAssets);
+    };
+  }, []);
   const hazardsLeft = useMemo(
     () => sceneObjects.filter((o) => o.type !== "SAFE").length,
     [sceneObjects]
@@ -57,7 +103,7 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       window.setTimeout(() => setScreenShake(false), 260);
 
       setSelected(null);
-      onComplete(false);
+      showPopup("Mistake +1 / Safety -10%", "#ef4444", 50, 55);
       return;
     }
 
@@ -70,11 +116,11 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       window.setTimeout(() => setScreenShake(false), 260);
 
       setSelected(null);
-      onComplete(false);
+      showPopup("Mistake +1 / Safety -10%", "#ef4444", 50, 55);
       return;
     }
 
-    setMsg("ถูกต้อง! ควบคุม Hazard แล้ว");
+    showPopup("FOUND +1", "#22c55e", 50, 52);
     setFlashType("correct");
     window.setTimeout(() => setFlashType(null), 160);
 
@@ -89,6 +135,7 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       setRemovingIds((prev) => prev.filter((id) => id !== current.uid));
 
       if (nextFound >= TARGET_HAZARDS) {
+        showPopup("AREA SAFE", "#facc15", 50, 45);
         finishCorrect();
       }
     }, 180);
@@ -102,6 +149,7 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
         ${screenShake ? "screen-shake" : ""}
       `}
     >
+      <ScorePopupLayer popups={popups} />
       {flashType && (
         <div
           className={`absolute inset-0 z-20 pointer-events-none ${
@@ -159,12 +207,12 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
       <div className="flex-1 px-1 pb-1 relative min-h-0">
         <div className="relative w-full h-full overflow-hidden rounded-[1.25rem] border-2 border-white/10 bg-slate-950">
           <div className="absolute inset-0 transition-opacity duration-150">
-            <img
-              src={`/assets/safety-grid/Background/factory-zone-0${bgIndex}.png`}
-              alt=""
-              draggable={false}
-              className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
-            />
+          <SafeImage
+  key={`bg-${assetReloadKey}`}
+  src={`/assets/safety-grid/Background/factory-zone-0${bgIndex}.png`}
+  alt=""
+  className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
+/>
 
             <div
               className="absolute inset-0 pointer-events-none"
@@ -244,18 +292,18 @@ export default function SpotHazardTask({ onComplete, onBack }: Props) {
                     zIndex: isSelected ? 1300 : 10 + Math.round(obj.y),
                   }}
                 >
-                  <img
-                    src={obj.image}
-                    alt={obj.label}
-                    draggable={false}
-                    className="absolute left-1/2 top-1/2 object-contain pointer-events-none select-none"
-                    style={{
-                      width: obj.size,
-                      height: obj.size,
-                      maxWidth: "none",
-                      transform: "translate(-50%, -50%)",
-                    }}
-                  />
+                  <SafeImage
+  key={`${obj.uid}-${assetReloadKey}`}
+  src={obj.image}
+  alt={obj.label}
+  className="absolute left-1/2 top-1/2 object-contain pointer-events-none select-none"
+  style={{
+    width: obj.size,
+    height: obj.size,
+    maxWidth: "none",
+    transform: "translate(-50%, -50%)",
+  }}
+/>
                 </button>
               );
             })}

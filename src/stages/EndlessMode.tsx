@@ -16,7 +16,7 @@ type Props = {
   onExit?: () => void;
 };
 
-type Phase = "dashboard" | "resolve" | "training" | "gameover";
+type Phase = "intro" | "dashboard" | "resolve" | "training" | "gameover";
 
 type TaskType =
   | "LEGAL_CHECK"
@@ -77,6 +77,83 @@ const MAX_MISTAKES = 5;
 const MAX_SAFETY = 100;
 const SHIFT_EVERY = 10;
 const QUEUE_MAX = 5;
+
+const ENDLESS_INTRO_PAGES = [
+  {
+    icon: "🏭",
+    title: "ENDLESS DUTY",
+    subtitle: "คุณรับบทเป็น Safety Officer ประจำโรงงาน",
+    body: [
+      "งาน Safety จะไหลเข้า Queue เรื่อย ๆ",
+      "เลือกงานให้ไว เคลียร์ให้ถูก แล้วพาโรงงานรอดให้นานที่สุด",
+    ],
+    tip: "เป้าหมาย: ทำคะแนนสูงที่สุดเพื่อรับรางวัล",
+  },
+  {
+    icon: "📋",
+    title: "TASK QUEUE",
+    subtitle: "งานเข้ามาแล้วต้องจัดลำดับ",
+    body: [
+      "แตะงานใน Queue เพื่อเข้าไปแก้",
+      "งานมีเวลา ถ้าปล่อยค้างนานจะเสีย Safety",
+      "งาน HIGH ควรรีบจัดการก่อน เพราะพลาดแล้วเจ็บกว่า",
+    ],
+    tip: "ดูเวลา + Priority ก่อนเลือกงาน",
+  },
+  {
+    icon: "",
+    title: "4 TYPES OF WORK",
+    subtitle: "แต่ละงานเล่นไม่เหมือนกัน",
+    body: [
+      "📄 Work Permit : ตรวจเอกสารก่อนอนุมัติ",
+      "🔍 Area Inspection: หา Hazard หน้างาน",
+      "🚨 Accident Investigation: หา Root Cause",
+      "🎓 Safety Coaching: อบรมพนักงาน Unsafe/Safe",
+    ],
+    tip: "เลือกงาน → อ่านสถานการณ์ → ตัดสินใจให้ถูก",
+  },
+  {
+    icon: "💥",
+    title: "",
+    subtitle: "อย่าให้โรงงานพัง",
+    body: [
+      "Safety เริ่มที่ 100%",
+      "ตอบผิด / งานค้าง / Queue แน่น จะทำให้ Safety ลด",
+      "Mistake ครบ 5 ครั้ง = โรงงานระเบิดตู้มทันที",
+    ],
+    tip: "ผิดได้นิดหน่อย แต่อย่าพลาดติดกัน",
+  },
+  {
+    icon: "🎓",
+    title: "TRAINING TIME",
+    subtitle: "ทุก 10 งาน เลือกทีมช่วยงาน",
+    body: [
+      "เคลียร์ครบ 10 งาน จะได้เลือก Training 1 อย่าง",
+      "บาง Training ช่วยเพิ่มเวลา บางอย่างช่วยจัด Queue",
+      "Shift ถัดไปจะยากขึ้น งานจะกดดันขึ้น",
+    ],
+    tip: "เป็น Powerup เลือกดีๆ",
+  },
+  {
+    icon: "",
+    title: "อย่ากดกลับหน้าหลัก ให้กดคำว่ายอมแพ้บันทึก Score",
+    subtitle: "เราขอฝากโรงงานไว้กับคุณ",
+    body: [
+      "ดู Queue ตลอดเวลา",
+      "อย่าปล่อยงานแดงค้าง",
+      "ตัดสินใจแบบ Safety Officer",
+    ],
+    tip: "พร้อมแล้วเริ่มงานได้เลย",
+  },
+  {
+    icon: "",
+    title: "",
+    subtitle: "",
+    image: "/assets/endless/endless-dashboard-guide.png",
+    body: [],
+    tip: "",
+  },
+];
 const DOCUMENT_TASK_TYPES: TaskType[] = [
   "LEGAL_CHECK",
   "JSA",
@@ -353,7 +430,8 @@ return {
 }
 
 export default function EndlessMode({ onComplete, onExit }: Props) {
-  const [phase, setPhase] = useState<Phase>("dashboard");
+  const [phase, setPhase] = useState<Phase>("intro");
+const [introPage, setIntroPage] = useState(0);
   const [queue, setQueue] = useState<Task[]>(() => [makeTask(0, 1)]);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeDocumentCase, setActiveDocumentCase] = useState<DocumentReviewCase | null>(null);
@@ -370,6 +448,7 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   const [screenShake, setScreenShake] = useState(false);
   const [safetyFlash, setSafetyFlash] = useState(false);
   const [mistakeFlash, setMistakeFlash] = useState(false);
+  const [scoreFlash, setScoreFlash] = useState(false);
   const { popups, showPopup } = useScorePopup();
   const [extraTime, setExtraTime] = useState(0);
   const [queueSlow, setQueueSlow] = useState(0);
@@ -414,6 +493,15 @@ useEffect(() => {
       50,
       type === "good" ? 52 : 58
     );
+  
+    if (type === "good") {
+      setScoreFlash(true);
+      window.setTimeout(() => setScoreFlash(false), 350);
+    }
+  };
+  const healSafety = (amount: number) => {
+    setFactorySafety((s) => Math.min(MAX_SAFETY, s + amount));
+    showPopup(`Safety +${amount}%`, "#22c55e", 50, 64);
   };
   const damageFactory = useCallback(
     (amount: number, reason: string) => {
@@ -432,6 +520,7 @@ pop(`Mistake +1 / Safety -${amount}%`, "bad");
         setMistakeFlash(true);
 window.setTimeout(() => setMistakeFlash(false), 500);
         if (next >= MAX_MISTAKES) {
+          pop("โรงงานระเบิด", "bad");
           setBanner("💥 โรงงานระเบิด! Safety Rating พังแล้ว!");
           setPhase("gameover");
           window.setTimeout(() => finishRun(), 900);
@@ -476,7 +565,6 @@ window.setTimeout(() => setMistakeFlash(false), 500);
         if (q.length >= maxQueue) {
           setFactorySafety((s) => Math.max(0, s - 2));
         
-          pop("QUEUE FULL / Safety -2%", "bad");
 setBanner("⚠️ Queue เต็ม! งานใหม่ค้างรอ / Safety -2");
         
           return q;
@@ -524,6 +612,8 @@ setActiveSafetySwipeTask(false);
     if (group === "COACHING") {
       setActiveSafetySwipeTask(true);
     }
+    setScreenShake(true);
+window.setTimeout(() => setScreenShake(false), 120);
     setPhase("resolve");
   };
   const getSafetyMultiplier = () => {
@@ -542,7 +632,7 @@ setActiveSafetySwipeTask(false);
       const gained = Math.round((200 + shift * 10) * getSafetyMultiplier());
       setScore((s) => s + gained);
       pop(`+${gained}`, "good");
-      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 3));
+      healSafety(3);
   
       setTasksDone((d) => {
         const next = d + 1;
@@ -576,7 +666,7 @@ setActiveSafetySwipeTask(false);
   
       setScore((s) => s + gained);
       pop(`+${gained}`, "good");
-      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
+      healSafety(2);
       
   
       setTasksDone((d) => {
@@ -630,10 +720,10 @@ const gained = Math.round(
 
 setScore((s) => s + gained);
 pop(`+${gained}`, "good");
-setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
+healSafety(1);
 
 if (rareRoll < 0.04) {
-  setFactorySafety((s) => Math.min(MAX_SAFETY, s + 10));
+  healSafety(10);
   successBanner = "🎉 Safety Campaign! Factory Safety +10";
 }
 
@@ -690,7 +780,7 @@ const gained = Math.round(
   
       setScore((s) => s + gained);
       pop(`+${gained}`, "good");
-      setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
+      healSafety(2);
   
       setTasksDone((d) => {
         const next = d + 1;
@@ -822,6 +912,20 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
       return next;
     });
   };
+  const safetyStatus =
+  factorySafety <= 25
+    ? "CRITICAL"
+    : factorySafety <= 50
+    ? "DANGER"
+    : factorySafety <= 75
+    ? "CAUTION"
+    : "STABLE";
+    const criticalAlarm =
+  factorySafety <= 15
+    ? "💀 FACTORY COLLAPSING"
+    : factorySafety <= 25
+    ? "🚨 FACTORY CRITICAL"
+    : "";
   return (
     <div
     className={`relative flex h-full flex-col overflow-hidden select-none ${
@@ -829,40 +933,73 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     }`}
       style={{
         background:
-          "radial-gradient(circle at top, #145b6b 0%, #071827 42%, #030712 100%)",
+  factorySafety <= 25
+    ? "radial-gradient(circle at top, #7f1d1d 0%, #111827 45%, #030712 100%)"
+    : factorySafety <= 50
+    ? "radial-gradient(circle at top, #78350f 0%, #071827 45%, #030712 100%)"
+    : "radial-gradient(circle at top, #145b6b 0%, #071827 42%, #030712 100%)",
       }}
     >
+      {phase === "intro" && (
+  <EndlessIntro
+    page={introPage}
+    total={ENDLESS_INTRO_PAGES.length}
+    data={ENDLESS_INTRO_PAGES[introPage]}
+    onNext={() => {
+      if (introPage >= ENDLESS_INTRO_PAGES.length - 1) {
+        setPhase("dashboard");
+        return;
+      }
+
+      setIntroPage((p) => p + 1);
+    }}
+    onBack={() => setIntroPage((p) => Math.max(0, p - 1))}
+    onSkip={() => setPhase("dashboard")}
+  />
+)}
 {phase === "dashboard" && (
   <div className="relative z-10 px-4 pt-3 pb-2">
     <div className="flex items-center justify-between">
       <div>
-        <div className="font-game text-white/45 text-xs">SAFETY OFFICER DUTY</div>
-        <div className="font-game font-black text-white text-[clamp(1.4rem,6vw,1.9rem)]">
-          SHIFT {shift}
-        </div>
+        <div className="font-game text-white/45 text-xs">Endless Mode</div>
+        <div className="flex items-center gap-2">
+  <div className="font-game font-black text-white text-[clamp(1.4rem,6vw,1.9rem)]">
+    SHIFT {shift}
+  </div>
+
+  <div
+    className={`rounded-full px-2 py-1 font-game font-black text-[10px] ${
+      safetyStatus === "CRITICAL"
+        ? "animate-pulse bg-red-600 text-white"
+        : safetyStatus === "DANGER"
+        ? "bg-orange-500 text-white"
+        : safetyStatus === "CAUTION"
+        ? "bg-yellow-300 text-slate-950"
+        : "bg-green-500 text-white"
+    }`}
+  >
+    {safetyStatus}
+  </div>
+</div>
       </div>
 
       <div className="flex gap-2">
         <PauseButton paused={paused} onToggle={togglePause} />
-        {onExit && (
-          <button
-            onClick={onExit}
-            className="rounded-2xl bg-white/10 px-3 py-2 font-game text-white"
-          >
-            ออก
-          </button>
-        )}
       </div>
     </div>
 
-    <div className="mt-2 grid grid-cols-5 gap-2">
+    <div className="mt-2 grid grid-cols-4 gap-2">
     <Hud
   label="SAFETY"
   value={`${factorySafety}%`}
   flash={safetyFlash}
 />
 <MistakeHud mistakes={mistakes} maxMistakes={MAX_MISTAKES} flash={mistakeFlash} />
-      <Hud label="SCORE" value={String(score)} />
+<Hud
+  label="SCORE"
+  value={String(score)}
+  flash={scoreFlash}
+/>
 
       <button
         onClick={useAssist}
@@ -875,22 +1012,22 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
         </div>
       </button>
 
-      <button
-        onClick={devClearTask}
-        className="rounded-2xl border border-pink-300/40 bg-pink-500/20 px-2 py-2 text-center active:scale-95"
-      >
-        <div className="font-game text-white/45 text-[10px]">DEV</div>
-        <div className="font-game font-black text-pink-200">CLEAR</div>
-      </button>
+
     </div>
 
     <div className="mt-2 rounded-2xl border border-white/10 bg-black/35 px-3 py-2 text-center">
       <div className="font-game font-black text-yellow-300 text-[clamp(0.95rem,4vw,1.15rem)]">
         {banner}
       </div>
+      {criticalAlarm && (
+  <div className="mt-1 animate-pulse font-game font-black text-red-300 text-[clamp(1rem,4.5vw,1.35rem)]">
+    {criticalAlarm}
+  </div>
+)}
       <div className="font-game text-white/45 text-xs">
-      Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)} 
-      </div>
+  Task Done {tasksDone} / Next Training {SHIFT_EVERY - (tasksDone % SHIFT_EVERY)}
+</div>
+
     </div>
   </div>
 )}
@@ -980,7 +1117,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
 
         setScore((s) => s + gained);
         pop(`+${gained}`, "good");
-        setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
+        healSafety(1);
 
         setTasksDone((d) => {
           const next = d + 1;
@@ -1050,7 +1187,144 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     </div>
   );
 }
+function EndlessIntro({
+  page,
+  total,
+  data,
+  onNext,
+  onBack,
+  onSkip,
+}: {
+  page: number;
+  total: number;
+  data: {
+    icon: string;
+    title: string;
+    subtitle: string;
+    image?: string;
+    body: string[];
+    tip: string;
+  };
+  onNext: () => void;
+  onBack: () => void;
+  onSkip: () => void;
+}) {
+  const isLast = page >= total - 1;
+  if (data.image) {
+    return (
+      <div className="absolute inset-0 z-[999] flex h-full flex-col overflow-hidden bg-black">
+        <img
+          src={data.image}
+          alt="Endless Dashboard Guide"
+          draggable={false}
+          className="min-h-0 flex-1 object-contain"
+        />
+  
+        <div className="shrink-0 px-4 pb-4 pt-2">
+          <button
+            onPointerUp={onNext}
+            className="w-full rounded-2xl border-2 border-yellow-300 bg-yellow-300 py-3 font-game font-black text-slate-950 active:scale-95"
+            style={{ fontSize: "clamp(1.15rem, 5vw, 1.5rem)" }}
+          >
+            เข้าใจแล้ว! เริ่มอ่านคำแนะนำต่อ 👆
+          </button>
+        </div>
+      </div>
+    );
+  }
 
+  return (
+    <div
+      onPointerUp={onNext}
+      className="absolute inset-0 z-[999] flex flex-col items-center justify-center overflow-hidden bg-black/85 px-6 text-center"
+    >
+      <button
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          onSkip();
+        }}
+        className="absolute right-4 top-4 rounded-2xl border border-white/15 bg-white/10 px-3 py-2 font-game font-black text-white/70 active:scale-95"
+        style={{ fontSize: "clamp(0.75rem, 3.2vw, 0.95rem)" }}
+      >
+        SKIP
+      </button>
+
+      <div className="mb-3 font-game font-black text-white/45 text-xs">
+        ENDLESS MODE · {page + 1}/{total}
+      </div>
+
+      <div className="mb-4 text-[clamp(4rem,18vw,6.5rem)] leading-none">
+        {data.icon}
+      </div>
+
+      <div
+        className="font-game font-black text-yellow-300 leading-none"
+        style={{
+          fontSize: "clamp(1.7rem, 8vw, 2.45rem)",
+          textShadow: "0 3px 0 rgba(0,0,0,0.45)",
+        }}
+      >
+        {data.title}
+      </div>
+
+      <div
+        className="mt-3 font-game font-black text-white leading-snug"
+        style={{
+          fontSize: "clamp(1.05rem, 4.8vw, 1.35rem)",
+          textShadow: "0 2px 0 rgba(0,0,0,0.45)",
+        }}
+      >
+        {data.subtitle}
+      </div>
+
+      <div
+        className="mt-5 w-full rounded-3xl border border-white/10 bg-black/35 px-4 py-4 font-game font-black text-white/85 leading-relaxed"
+        style={{
+          fontSize: "clamp(0.98rem, 4.1vw, 1.18rem)",
+          maxHeight: "42dvh",
+        }}
+      >
+        {data.body.map((line) => (
+          <div key={line} className="mb-2 last:mb-0">
+            {line}
+          </div>
+        ))}
+      </div>
+
+      <div
+        className="mt-4 rounded-2xl border border-yellow-300/45 bg-yellow-300/15 px-4 py-3 font-game font-black text-yellow-300"
+        style={{ fontSize: "clamp(0.92rem, 3.8vw, 1.08rem)" }}
+      >
+        💡 {data.tip}
+      </div>
+
+      <div className="mt-8 flex w-full items-center gap-2">
+        <button
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            onBack();
+          }}
+          disabled={page === 0}
+          className="w-[32%] rounded-2xl border border-white/15 bg-white/10 py-3 font-game font-black text-white disabled:opacity-25 active:scale-95"
+          style={{ fontSize: "clamp(0.95rem, 4vw, 1.15rem)" }}
+        >
+          BACK
+        </button>
+
+        <button
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+          className="flex-1 rounded-2xl border-2 border-yellow-300/55 bg-yellow-300/20 py-3 font-game font-black text-yellow-300 animate-pulse active:scale-95"
+          style={{ fontSize: "clamp(1.05rem, 4.8vw, 1.35rem)" }}
+        >
+          {isLast ? "👆 แตะเพื่อเริ่ม!" : "👆 แตะเพื่อไปต่อ"}
+        </button>
+      </div>
+    </div>
+  );
+}
 function Hud({
   label,
   value,
@@ -1069,7 +1343,28 @@ function Hud({
   }`}
 >
       <div className="font-game text-white/45 text-[10px]">{label}</div>
-      <div className="font-game font-black text-white text-[clamp(0.9rem,4vw,1.25rem)]">{value}</div>
+      <div className="font-game font-black text-white text-[clamp(0.9rem,4vw,1.25rem)]">
+  {value}
+</div>
+
+{label === "SAFETY" && (
+  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-black/40">
+    <div
+      className={`h-full rounded-full ${
+        Number(value.replace("%", "")) <= 25
+          ? "bg-red-500"
+          : Number(value.replace("%", "")) <= 50
+          ? "bg-orange-400"
+          : Number(value.replace("%", "")) <= 75
+          ? "bg-yellow-300"
+          : "bg-green-500"
+      }`}
+      style={{
+        width: value,
+      }}
+    />
+  </div>
+)}
     </div>
   );
 }
@@ -1121,6 +1416,14 @@ function Dashboard({
 const dangerQueue = queue.length >= maxQueue - 1;
 const criticalQueue = queue.length >= maxQueue;
 const mostUrgentTime = queue.length > 0 ? Math.min(...queue.map((task) => task.timeLeft)) : 999;
+const queueStatus =
+  criticalQueue
+    ? "OVERLOAD"
+    : dangerQueue
+    ? "BUSY"
+    : mostUrgentTime <= 8
+    ? "URGENT"
+    : "OK";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -1133,32 +1436,38 @@ const mostUrgentTime = queue.length > 0 ? Math.min(...queue.map((task) => task.t
   : "border-white/10"
   }`}
 >
-        <div className="mb-2 h-3 shrink-0 overflow-hidden rounded-full bg-black/50">
-        <div
-  className={`h-full rounded-full transition-all ${
-    deskPressure >= 80
-      ? "bg-red-500"
-      : deskPressure >= 50
-      ? "bg-yellow-400"
-      : "bg-green-500"
-  }`}
-            style={{ width: `${deskPressure}%` }}
-          />
-        </div>
 
-        <div className="mb-2 flex shrink-0 items-center justify-between">
-  <div className="flex items-center gap-2">
-    <div className="font-game font-black text-yellow-300">QUEUE</div>
-    {dangerQueue && (
-      <div className="rounded-full border border-red-300 bg-red-600 px-2 py-0.5 font-game font-black text-white text-[10px] animate-pulse">
-        OVERLOAD
-      </div>
-    )}
+<div className="mb-2 flex shrink-0 items-start justify-between">
+  <div className="font-game font-black text-yellow-300 text-[clamp(1rem,4.5vw,1.25rem)]">
+    QUEUE
   </div>
-          <div className="font-game text-white/45 text-xs">
-            {queue.length}/{maxQueue}
-          </div>
-        </div>
+
+  <div className="text-right leading-none">
+    <div
+      className={`font-game font-black text-[clamp(2rem,9vw,3rem)] ${
+        criticalQueue
+          ? "text-red-300 animate-pulse"
+          : dangerQueue
+          ? "text-yellow-300"
+          : "text-white"
+      }`}
+    >
+      {queue.length}/{maxQueue}
+    </div>
+
+    <div
+      className={`mt-1 font-game font-black text-[10px] ${
+        criticalQueue
+          ? "text-red-300 animate-pulse"
+          : dangerQueue
+          ? "text-yellow-300"
+          : "text-green-300"
+      }`}
+    >
+      {queueStatus}
+    </div>
+  </div>
+</div>
 
         <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
           <div className="grid gap-2 pb-6">
@@ -1172,9 +1481,9 @@ const mostUrgentTime = queue.length > 0 ? Math.min(...queue.map((task) => task.t
                 onClick={() => onOpen(task)}
                 className={`w-full rounded-[24px] p-3 text-left transition-all duration-150 active:scale-95 ${
                   isCritical
-  ? "scale-[1.04] border-4 border-red-400 bg-red-500/20 shadow-[0_0_26px_rgba(248,113,113,0.55)] animate-pulse"
+                  ? "border-2 border-red-400 bg-red-500/15 shadow-[0_0_18px_rgba(248,113,113,0.35)]"
   : isMostUrgent
-  ? "scale-[1.03] border-4 border-yellow-300 bg-yellow-300/20 shadow-[0_0_22px_rgba(250,204,21,0.35)]"
+  ? "border-2 border-yellow-300 bg-yellow-300/15 shadow-[0_0_16px_rgba(250,204,21,0.28)]"
   : "border border-white/10 bg-white/10 hover:bg-white/15"
                 }`}
               >
