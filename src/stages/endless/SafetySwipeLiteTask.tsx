@@ -48,22 +48,22 @@ export default function SafetySwipeLiteTask({ onComplete, onBack }: Props) {
       window.setTimeout(() => setScreenShake(false), 260);
     }
 
+    if (!correct) {
+      onComplete(false);
+      return;
+    }
+    
     window.setTimeout(() => {
-        if (!correct) {
-          onComplete(false);
-          return;
-        }
-      
-        if (index >= TOTAL_CARDS - 1) {
-          onComplete(true);
-          return;
-        }
-      
-        setIndex((x) => x + 1);
-        setDragX(0);
-        setFeedback(null);
-        lockedRef.current = false;
-      }, 260);
+      if (index >= TOTAL_CARDS - 1) {
+        onComplete(true);
+        return;
+      }
+    
+      setIndex((x) => x + 1);
+      setDragX(0);
+      setFeedback(null);
+      lockedRef.current = false;
+    }, 220);
   };
 
   return (

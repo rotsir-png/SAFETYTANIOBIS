@@ -9,6 +9,7 @@ import {
 import AccidentInvestigateTask from "./endless/AccidentInvestigateTask";
 import SpotHazardTask from "./endless/SpotHazardTask";
 import SafetySwipeLiteTask from "./endless/SafetySwipeLiteTask";
+import ScorePopupLayer, { useScorePopup } from "../components/ScorePopup";
 
 type Props = {
   onComplete: (score: number, highScore: number) => void;
@@ -333,10 +334,10 @@ function makeTask(extraTime = 0, shift = 1): Task {
     priority === "HIGH" ? -3 : priority === "MEDIUM" ? -1 : 2;
 
   const shiftPenalty = Math.min(5, Math.floor(shift / 2));
-  const baseTime = 60;
+  const baseTime = 38;
 const maxTime = Math.max(
-  18,
-  baseTime + extraTime + priorityBonus - shiftPenalty * 5 + Math.floor(Math.random() * 8)
+  12,
+  baseTime + extraTime + priorityBonus - shiftPenalty * 3 + Math.floor(Math.random() * 5)
 );
 
   const display = getEndlessTaskDisplay(base.type);
@@ -366,7 +367,10 @@ export default function EndlessMode({ onComplete, onExit }: Props) {
   const [tasksDone, setTasksDone] = useState(0);
   const [shift, setShift] = useState(1);
   const [banner, setBanner] = useState("รับบท จป. เคลียร์งาน Safety ให้ทัน!");
-
+  const [screenShake, setScreenShake] = useState(false);
+  const [safetyFlash, setSafetyFlash] = useState(false);
+  const [mistakeFlash, setMistakeFlash] = useState(false);
+  const { popups, showPopup } = useScorePopup();
   const [extraTime, setExtraTime] = useState(0);
   const [queueSlow, setQueueSlow] = useState(0);
   const [assistCharges, setAssistCharges] = useState(0);
@@ -403,13 +407,30 @@ useEffect(() => {
 
     onComplete(score, highScore);
   }, [onComplete, score]);
-
+  const pop = (text: string, type: "good" | "bad") => {
+    showPopup(
+      text,
+      type === "good" ? "#22c55e" : "#ef4444",
+      50,
+      type === "good" ? 52 : 58
+    );
+  };
   const damageFactory = useCallback(
     (amount: number, reason: string) => {
       if (doneRef.current) return;
+  
       setFactorySafety((s) => Math.max(0, s - amount));
+      setSafetyFlash(true);
+window.setTimeout(() => setSafetyFlash(false), 450);
+pop(`Mistake +1 / Safety -${amount}%`, "bad");
+  
       setMistakes((m) => {
         const next = m + 1;
+  
+        setScreenShake(true);
+        window.setTimeout(() => setScreenShake(false), 320);
+        setMistakeFlash(true);
+window.setTimeout(() => setMistakeFlash(false), 500);
         if (next >= MAX_MISTAKES) {
           setBanner("💥 โรงงานระเบิด! Safety Rating พังแล้ว!");
           setPhase("gameover");
@@ -426,7 +447,7 @@ useEffect(() => {
   useEffect(() => {
     if ((phase !== "dashboard" && phase !== "resolve") || doneRef.current) return;
 
-    const spawnMs = Math.max(1800, 4200 - shift * 250 + queueSlow);
+    const spawnMs = Math.max(1200, 2600 - shift * 140 + queueSlow);
 
     const interval = window.setInterval(() => {
       if (pausedRef.current || doneRef.current) return;
@@ -455,7 +476,8 @@ useEffect(() => {
         if (q.length >= maxQueue) {
           setFactorySafety((s) => Math.max(0, s - 2));
         
-          setBanner("⚠️ Queue เต็ม! งานใหม่ค้างรอ / Safety -2");
+          pop("QUEUE FULL / Safety -2%", "bad");
+setBanner("⚠️ Queue เต็ม! งานใหม่ค้างรอ / Safety -2");
         
           return q;
         }
@@ -502,7 +524,6 @@ setActiveSafetySwipeTask(false);
     if (group === "COACHING") {
       setActiveSafetySwipeTask(true);
     }
-  
     setPhase("resolve");
   };
   const getSafetyMultiplier = () => {
@@ -520,6 +541,7 @@ setActiveSafetySwipeTask(false);
     if (correct) {
       const gained = Math.round((200 + shift * 10) * getSafetyMultiplier());
       setScore((s) => s + gained);
+      pop(`+${gained}`, "good");
       setFactorySafety((s) => Math.min(MAX_SAFETY, s + 3));
   
       setTasksDone((d) => {
@@ -528,7 +550,7 @@ setActiveSafetySwipeTask(false);
   
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
-          window.setTimeout(() => setPhase("training"), 350);
+          window.setTimeout(() => setPhase("training"), 180);
         } else {
           setPhase("dashboard");
         }
@@ -553,6 +575,7 @@ setActiveSafetySwipeTask(false);
       );
   
       setScore((s) => s + gained);
+      pop(`+${gained}`, "good");
       setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
       
   
@@ -563,7 +586,7 @@ setActiveSafetySwipeTask(false);
   
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
-          window.setTimeout(() => setPhase("training"), 350);
+          window.setTimeout(() => setPhase("training"), 180);
         } else {
           setPhase("dashboard");
         }
@@ -606,6 +629,7 @@ const gained = Math.round(
       let successBanner = `✅ เคลียร์งาน +${gained} / Safety +1`;
 
 setScore((s) => s + gained);
+pop(`+${gained}`, "good");
 setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
 
 if (rareRoll < 0.04) {
@@ -624,7 +648,7 @@ if (rareRoll >= 0.04 && rareRoll < 0.07) {
 
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
-          window.setTimeout(() => setPhase("training"), 350);
+          window.setTimeout(() => setPhase("training"), 180);
         } else {
           setPhase("dashboard");
         }
@@ -665,6 +689,7 @@ const gained = Math.round(
 );
   
       setScore((s) => s + gained);
+      pop(`+${gained}`, "good");
       setFactorySafety((s) => Math.min(MAX_SAFETY, s + 2));
   
       setTasksDone((d) => {
@@ -674,7 +699,7 @@ const gained = Math.round(
   
         if (next > 0 && next % SHIFT_EVERY === 0) {
           setShift((sh) => sh + 1);
-          window.setTimeout(() => setPhase("training"), 350);
+          window.setTimeout(() => setPhase("training"), 180);
         } else {
           setPhase("dashboard");
         }
@@ -718,8 +743,12 @@ const gained = Math.round(
       setMistakes((m) => Math.max(0, m - 1));
     }
   
-    setBanner(`${training.icon} ${training.title} เข้าทีม Safety แล้ว!`);
-    setPhase("dashboard");
+    pop(`${training.icon} ${training.title}`, "good");
+setBanner(`${training.icon} ${training.title} เข้าทีม Safety แล้ว!`);
+
+window.setTimeout(() => {
+  setPhase("dashboard");
+}, 220);
   };
 
   const trainingChoices = useMemo(
@@ -758,6 +787,7 @@ const gained = Math.round(
     if (correct) {
       const gained = 30 + shift * 5 + walkingBonusLevel * 15;
 setScore((s) => s + gained);
+pop(`+${gained}`, "good");
 setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     } else {
       damageFactory(5, "ตอบ Walking Request ผิด");
@@ -777,6 +807,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
   
     const gained = 100 + shift * 10;
     setScore((s) => s + gained);
+    pop(`+${gained}`, "good");
   
     setTasksDone((d) => {
       const next = d + 1;
@@ -793,7 +824,9 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
   };
   return (
     <div
-      className="relative flex h-full flex-col overflow-hidden select-none"
+    className={`relative flex h-full flex-col overflow-hidden select-none ${
+      screenShake ? "screen-shake" : ""
+    }`}
       style={{
         background:
           "radial-gradient(circle at top, #145b6b 0%, #071827 42%, #030712 100%)",
@@ -823,8 +856,12 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     </div>
 
     <div className="mt-2 grid grid-cols-5 gap-2">
-      <Hud label="SAFETY" value={`${factorySafety}%`} />
-      <Hud label="MISTAKE" value={`${mistakes}/${MAX_MISTAKES}`} />
+    <Hud
+  label="SAFETY"
+  value={`${factorySafety}%`}
+  flash={safetyFlash}
+/>
+<MistakeHud mistakes={mistakes} maxMistakes={MAX_MISTAKES} flash={mistakeFlash} />
       <Hud label="SCORE" value={String(score)} />
 
       <button
@@ -942,6 +979,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
         );
 
         setScore((s) => s + gained);
+        pop(`+${gained}`, "good");
         setFactorySafety((s) => Math.min(MAX_SAFETY, s + 1));
 
         setTasksDone((d) => {
@@ -953,7 +991,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
 
           if (next > 0 && next % SHIFT_EVERY === 0) {
             setShift((sh) => sh + 1);
-            window.setTimeout(() => setPhase("training"), 350);
+            window.setTimeout(() => setPhase("training"), 180);
           } else {
             setPhase("dashboard");
           }
@@ -1007,17 +1045,61 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
           </div>
         )}
       </div>
-
+      <ScorePopupLayer popups={popups} />
       {PauseOverlay}
     </div>
   );
 }
 
-function Hud({ label, value }: { label: string; value: string }) {
+function Hud({
+  label,
+  value,
+  flash = false,
+}: {
+  label: string;
+  value: string;
+  flash?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/10 px-2 py-2 text-center">
+    <div
+  className={`rounded-2xl border px-2 py-2 text-center transition-all duration-150 ${
+    flash
+      ? "border-red-400 bg-red-500/30 scale-110"
+      : "border-white/10 bg-white/10"
+  }`}
+>
       <div className="font-game text-white/45 text-[10px]">{label}</div>
       <div className="font-game font-black text-white text-[clamp(0.9rem,4vw,1.25rem)]">{value}</div>
+    </div>
+  );
+}
+function MistakeHud({
+  mistakes,
+  maxMistakes,
+  flash = false,
+}: {
+  mistakes: number;
+  maxMistakes: number;
+  flash?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border px-2 py-2 text-center transition-all duration-150 ${
+        flash
+          ? "scale-110 border-red-400 bg-red-500/30"
+          : mistakes >= maxMistakes - 1
+          ? "border-red-400 bg-red-500/20"
+          : "border-white/10 bg-white/10"
+      }`}
+    >
+      <div className="font-game text-white/45 text-[10px]">MISTAKE</div>
+      <div className="font-game font-black text-[clamp(0.8rem,3.5vw,1.05rem)] leading-none">
+        {Array.from({ length: maxMistakes }).map((_, i) => (
+          <span key={i} className={i < mistakes ? "text-red-400" : "text-white/25"}>
+            {i < mistakes ? "💥" : "□"}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1036,19 +1118,43 @@ function Dashboard({
   onAnswerWalkingRequest: (index: number) => void;
 }) {
   const deskPressure = Math.min(100, (queue.length / maxQueue) * 100);
+const dangerQueue = queue.length >= maxQueue - 1;
+const criticalQueue = queue.length >= maxQueue;
+const mostUrgentTime = queue.length > 0 ? Math.min(...queue.map((task) => task.timeLeft)) : 999;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex min-h-0 flex-1 flex-col rounded-[26px] border border-white/10 bg-black/45 p-3">
+      <div
+  className={`flex min-h-0 flex-1 flex-col rounded-[26px] border bg-black/45 p-3 ${
+    criticalQueue
+  ? "border-red-300 bg-red-950/45 shadow-[0_0_30px_rgba(248,113,113,0.55)]"
+  : dangerQueue
+  ? "border-red-400 shadow-[0_0_24px_rgba(248,113,113,0.35)]"
+  : "border-white/10"
+  }`}
+>
         <div className="mb-2 h-3 shrink-0 overflow-hidden rounded-full bg-black/50">
-          <div
-            className="h-full rounded-full bg-red-500 transition-all"
+        <div
+  className={`h-full rounded-full transition-all ${
+    deskPressure >= 80
+      ? "bg-red-500"
+      : deskPressure >= 50
+      ? "bg-yellow-400"
+      : "bg-green-500"
+  }`}
             style={{ width: `${deskPressure}%` }}
           />
         </div>
 
         <div className="mb-2 flex shrink-0 items-center justify-between">
-          <div className="font-game font-black text-yellow-300">QUEUE</div>
+  <div className="flex items-center gap-2">
+    <div className="font-game font-black text-yellow-300">QUEUE</div>
+    {dangerQueue && (
+      <div className="rounded-full border border-red-300 bg-red-600 px-2 py-0.5 font-game font-black text-white text-[10px] animate-pulse">
+        OVERLOAD
+      </div>
+    )}
+  </div>
           <div className="font-game text-white/45 text-xs">
             {queue.length}/{maxQueue}
           </div>
@@ -1056,35 +1162,50 @@ function Dashboard({
 
         <div className="min-h-0 flex-1 overflow-y-scroll overscroll-contain pr-1 [-webkit-overflow-scrolling:touch]">
           <div className="grid gap-2 pb-6">
-            {queue.map((task, index) => (
-              <button
+          {queue.map((task, index) => {
+  const isMostUrgent = task.timeLeft === mostUrgentTime;
+  const isCritical = task.timeLeft <= 8;
+
+  return (
+    <button
                 key={task.id}
                 onClick={() => onOpen(task)}
-                className={`w-full rounded-[24px] p-3 text-left active:scale-95 ${
-                  index === 0
-                    ? "border-4 border-yellow-300 bg-yellow-300/15"
-                    : "border border-white/10 bg-white/10"
+                className={`w-full rounded-[24px] p-3 text-left transition-all duration-150 active:scale-95 ${
+                  isCritical
+  ? "scale-[1.04] border-4 border-red-400 bg-red-500/20 shadow-[0_0_26px_rgba(248,113,113,0.55)] animate-pulse"
+  : isMostUrgent
+  ? "scale-[1.03] border-4 border-yellow-300 bg-yellow-300/20 shadow-[0_0_22px_rgba(250,204,21,0.35)]"
+  : "border border-white/10 bg-white/10 hover:bg-white/15"
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div
                     className={`font-game font-black ${
-                      index === 0 ? "text-yellow-300 text-lg" : "text-white"
+                      isCritical ? "text-red-300 text-lg" : isMostUrgent ? "text-yellow-300 text-lg" : "text-white"
                     }`}
                   >
                     {task.icon} {task.title}
                   </div>
 
-                  <div className="font-game font-black text-red-300">
-                    {Math.ceil(task.timeLeft)}s
-                  </div>
+                  <div
+  className={`rounded-full px-2 py-1 font-game font-black ${
+    task.timeLeft <= 8
+      ? "animate-pulse bg-red-600 text-white"
+      : task.timeLeft <= 16
+      ? "bg-yellow-300 text-slate-950"
+      : "bg-white/10 text-white"
+  }`}
+>
+  {Math.ceil(task.timeLeft)}s
+</div>
                 </div>
 
                 <div className="font-game text-white/70 text-sm">
                   {task.desc}
                 </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1155,7 +1276,7 @@ function TrainingSelect({
         <button
           key={t.id}
           onClick={() => onChoose(t)}
-          className="rounded-[26px] border-2 border-yellow-300/50 bg-slate-950/90 p-4 text-left active:scale-95"
+          className="rounded-[26px] border-2 border-yellow-300/50 bg-slate-950/90 p-4 text-left transition-all duration-150 active:scale-95 active:bg-yellow-300/20 shadow-[0_0_18px_rgba(250,204,21,0.18)]"
         >
           <div className="flex items-center gap-3">
             <div className="text-5xl">{t.icon}</div>
