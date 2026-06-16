@@ -97,6 +97,8 @@ export default function LeaderboardScreen({ onBack }: Props) {
     if (rank === 1) return '🥇';
     if (rank === 2) return '🥈';
     if (rank === 3) return '🥉';
+    if (rank === 4) return '⭐';
+    if (rank === 5) return '⭐';
     return null;
   };
 
@@ -198,7 +200,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
                       style={{
                         background: mine
                           ? 'linear-gradient(135deg, rgba(245,158,11,0.25), rgba(245,158,11,0.08))'
-                          : entry.rank <= 3
+                          : entry.rank <= 5
                             ? 'rgba(255,255,255,0.06)'
                             : 'rgba(255,255,255,0.04)',
                         border: mine
@@ -295,7 +297,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
         {dept.dept}
       </div>
 
-      {i < 3 && (
+      {i < 5 && (
         <div
           className="mt-1 inline-block rounded-full px-2 py-1 font-game font-black"
           style={{
