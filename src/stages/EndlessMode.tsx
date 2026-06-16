@@ -307,7 +307,6 @@ const TRAININGS: Training[] = [
   { id: "EXTRA_TIME", icon: "⏱️", title: "Better Planning", desc: "Task ใหม่มีเวลาเพิ่ม" },
   { id: "DISPATCHER", icon: "📡", title: "Dispatcher", desc: "เพิ่มขนาด Queue สูงสุด +1" },
   { id: "RISK_ENGINEER", icon: "🛡️", title: "Risk Engineer", desc: "งาน HIGH มีเวลาเพิ่ม ลดไฟไหม้หน้างาน" },
-  { id: "SAFETY_TRAINER", icon: "🎤", title: "Safety Trainer", desc: "Walking Request ตอบถูกได้คะแนนเพิ่ม" },
   { id: "FIRST_AID", icon: "🏥", title: "First Aid Team", desc: "ลด Mistake ทันที 1 ครั้ง" },
 ];
 const WALKING_REQUESTS: Omit<WalkingRequest, "id">[] = [
@@ -364,10 +363,16 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function pickPriority(): TaskPriority {
+function pickPriority(shift: number): TaskPriority {
   const r = Math.random();
-  if (r < 0.2) return "HIGH";
-  if (r < 0.55) return "MEDIUM";
+
+  // Shift สูง = งานแดงเยอะขึ้น
+  const highChance = Math.min(0.5, 0.2 + (shift - 1) * 0.02);
+  const mediumChance = Math.min(0.35, 0.35 + (shift - 1) * 0.01);
+
+  if (r < highChance) return "HIGH";
+  if (r < highChance + mediumChance) return "MEDIUM";
+
   return "LOW";
 }
 function getEndlessTaskDisplay(type: TaskType) {
@@ -405,7 +410,7 @@ function getEndlessTaskDisplay(type: TaskType) {
 }
 function makeTask(extraTime = 0, shift = 1): Task {
   const base = pick(TASK_BANK);
-  const priority = pickPriority();
+  const priority = pickPriority(shift);
 
   const priorityBonus =
     priority === "HIGH" ? -3 : priority === "MEDIUM" ? -1 : 2;
@@ -414,7 +419,7 @@ function makeTask(extraTime = 0, shift = 1): Task {
   const baseTime = 38;
 const maxTime = Math.max(
   12,
-  baseTime + extraTime + priorityBonus - shiftPenalty * 3 + Math.floor(Math.random() * 5)
+  baseTime + extraTime + priorityBonus - shiftPenalty * 5 + Math.floor(Math.random() * 5)
 );
 
   const display = getEndlessTaskDisplay(base.type);
@@ -455,7 +460,7 @@ const [introPage, setIntroPage] = useState(0);
   const [assistCharges, setAssistCharges] = useState(0);
   const [queueBonus, setQueueBonus] = useState(0);
 const [riskEngineerLevel, setRiskEngineerLevel] = useState(0);
-const [walkingBonusLevel, setWalkingBonusLevel] = useState(0);
+const [overflowCount, setOverflowCount] = useState(0);
 
   const doneRef = useRef(false);
   const pausedRef = useRef(false);
@@ -536,7 +541,7 @@ window.setTimeout(() => setMistakeFlash(false), 500);
   useEffect(() => {
     if ((phase !== "dashboard" && phase !== "resolve") || doneRef.current) return;
 
-    const spawnMs = Math.max(1200, 2600 - shift * 140 + queueSlow);
+    const spawnMs = Math.max(1200, 2600 - shift * 220 + queueSlow);
 
     const interval = window.setInterval(() => {
       if (pausedRef.current || doneRef.current) return;
@@ -565,7 +570,25 @@ window.setTimeout(() => setMistakeFlash(false), 500);
         if (q.length >= maxQueue) {
           setFactorySafety((s) => Math.max(0, s - 2));
         
-setBanner("⚠️ Queue เต็ม! งานใหม่ค้างรอ / Safety -2");
+          setOverflowCount((count) => {
+            const next = count + 1;
+        
+            if (next >= 3) {
+              damageFactory(0, "Queue Overflow สะสม");
+        
+              setBanner(
+                "💥 Queue Overflow x3 → Mistake +1"
+              );
+        
+              return 0;
+            }
+        
+            setBanner(
+              `⚠️ Queue เต็ม! (${next}/3) / Safety -2`
+            );
+        
+            return next;
+          });
         
           return q;
         }
@@ -827,10 +850,6 @@ const gained = Math.round(
       setRiskEngineerLevel((x) => Math.min(3, x + 1));
     }
   
-    if (training.id === "SAFETY_TRAINER") {
-      setWalkingBonusLevel((x) => Math.min(3, x + 1));
-    }
-  
     if (training.id === "FIRST_AID") {
       setMistakes((m) => Math.max(0, m - 1));
     }
@@ -877,7 +896,7 @@ window.setTimeout(() => {
     const correct = choiceIndex === walkingRequest.answer;
   
     if (correct) {
-      const gained = 30 + shift * 5 + walkingBonusLevel * 15;
+      const gained = 30 + shift * 5;
 setScore((s) => s + gained);
 pop(`+${gained}`, "good");
 setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
