@@ -226,7 +226,6 @@ export default function LeaderboardScreen({ onBack }: Props) {
                         <div className="font-game text-yellow-400 font-bold">
                           {entry.score.toLocaleString()}
                         </div>
-                        <div className="font-game text-white/30 text-xs">{entry.survivedSeconds} วิ</div>
                       </div>
                     </div>
                   );
