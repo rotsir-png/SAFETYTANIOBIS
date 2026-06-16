@@ -33,7 +33,8 @@ export default function TitleScreen({
   ENDLESS_REQUIRES_STAGES.every((stageId) =>
     progress.passedStages.includes(stageId)
   );
-
+// TEMP: เปิด Endless Mode ชั่วคราวสำหรับเทสต์
+//const isEndlessUnlocked = true;
   useEffect(() => {
     const t1 = setTimeout(() => setVisible(true), 50);
     return () => clearTimeout(t1);

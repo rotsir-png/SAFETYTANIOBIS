@@ -1107,7 +1107,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
 {phase === "resolve" && activeTask && activeSafetySwipeTask && (
   <SafetySwipeLiteTask
     onComplete={(correctCount) => {
-      const success = correctCount >= 3;
+      const success = correctCount >= 5;
 
       setQueue((q) => q.filter((t) => t.id !== activeTask.id));
 

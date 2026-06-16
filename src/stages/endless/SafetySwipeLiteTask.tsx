@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { swipeCards } from "../../gameData";
 
 type Props = {
-  onComplete: (correct: boolean) => void;
+  onComplete: (correctCount: number) => void;
   onBack: () => void;
 };
 
@@ -49,13 +49,15 @@ export default function SafetySwipeLiteTask({ onComplete, onBack }: Props) {
     }
 
     if (!correct) {
-      onComplete(false);
+      window.setTimeout(() => {
+        onComplete(0);
+      }, 220);
       return;
     }
     
     window.setTimeout(() => {
       if (index >= TOTAL_CARDS - 1) {
-        onComplete(true);
+        onComplete(nextCorrect);
         return;
       }
     
