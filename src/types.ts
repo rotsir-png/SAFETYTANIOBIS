@@ -56,6 +56,7 @@ export interface LeaderboardEntry {
   score: number;
   survivedSeconds: number;
   lineUserId?: string;
+  displayName?: string | null;
 }
 
 export interface DeptParticipation {

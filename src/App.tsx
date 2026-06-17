@@ -155,7 +155,13 @@ if (p) {
   }, [refreshProgress]);
 
   const handleEndlessComplete = useCallback((score: number, highScore: number) => {
-    setResult({ score, stage: 'endless', passed: true, highScore });
+    setResult({
+      score,
+      stage: 'endless',
+      passed: true,
+      highScore,
+    });
+  
     setScreen('result');
   
     const p = getProfile();
@@ -166,9 +172,8 @@ if (p) {
       recordEndlessScore(p, score)
         .then(() => console.log('[EndlessComplete] saved'))
         .catch((err) => console.error('[EndlessComplete] failed', err));
-    } else {
-      console.warn('[EndlessComplete] no profile');
     }
+  
   }, []);
 
   const handleRetry = useCallback(() => {
@@ -397,6 +402,7 @@ if (p) {
           onRetry={handleRetry}
           onNext={handleNext}
           onHome={() => setScreen('title')}
+          onLeaderboard={() => setScreen('leaderboard')}
         />
       )}
 

@@ -12,12 +12,13 @@ import type { LeaderboardEntry } from '../types';
 
 interface Props {
   onBack: () => void;
+  initialTab?: 'endless' | 'dept';
 }
 
 type Tab = 'endless' | 'dept';
 
-export default function LeaderboardScreen({ onBack }: Props) {
-  const [tab, setTab] = useState<Tab>('dept');
+export default function LeaderboardScreen({ onBack, initialTab = 'dept' }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [visible, setVisible] = useState(false);
   const [loadingEndless, setLoadingEndless] = useState(true);
   const [loadingDept, setLoadingDept] = useState(true);
@@ -77,6 +78,7 @@ export default function LeaderboardScreen({ onBack }: Props) {
       .map((e, i) => ({
         rank: i + 1,
         employeeId: e.employeeId,
+        displayName: e.displayName ?? null,
         dept: e.department,
         score: e.score,
         survivedSeconds: e.survivedSeconds,
@@ -217,7 +219,8 @@ export default function LeaderboardScreen({ onBack }: Props) {
 
                       <div className="flex-1 min-w-0">
                         <div className="font-game text-white font-bold text-base truncate">
-                          {entry.employeeId}
+                        {entry.employeeId}
+{entry.displayName ? ` · ${entry.displayName}` : ''}
                         </div>
                         <div className="font-game text-white/55 text-sm truncate">{entry.dept}</div>
                       </div>

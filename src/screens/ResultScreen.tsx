@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import type { GameResult } from '../types';
 import { playSfx } from '../sound';
+import { fetchTopEndlessScores, type RemoteEndlessEntry } from '../services/leaderboardService';
 
 interface Props {
   result: GameResult;
   onRetry: () => void;
   onNext: () => void;
   onHome: () => void;
+  onLeaderboard?: () => void;
 }
 
 const STAGE_PASS_TEXT: Record<number, string> = {
@@ -20,9 +22,17 @@ const STAGE_PASS_TEXT: Record<number, string> = {
   8: 'Final Chaos ผ่าน!',
 };
 
-export default function ResultScreen({ result, onRetry, onNext, onHome }: Props) {
+export default function ResultScreen({
+  result,
+  onRetry,
+  onNext,
+  onHome,
+  onLeaderboard,
+}: Props) {
   const [visible, setVisible] = useState(false);
   const [scoreDisplay, setScoreDisplay] = useState(0);
+  const [endlessTop, setEndlessTop] = useState<RemoteEndlessEntry[]>([]);
+const [loadingEndlessTop, setLoadingEndlessTop] = useState(false);
 
   const winSfx = useRef(new Audio('/sfx/win.wav'));
   const loseSfx = useRef(new Audio('/sfx/lose.wav'));
@@ -39,6 +49,16 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
 
   const passed = result.passed;
   const isNewHigh = isEndless && result.highScore !== undefined && result.score >= result.highScore;
+  useEffect(() => {
+    if (!isEndless) return;
+  
+    setLoadingEndlessTop(true);
+  
+    fetchTopEndlessScores(5)
+      .then(setEndlessTop)
+      .catch(() => setEndlessTop([]))
+      .finally(() => setLoadingEndlessTop(false));
+  }, [isEndless]);
 
   useEffect(() => {
     winSfx.current.volume = 0.65;
@@ -104,10 +124,9 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
           transition: 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)',
         }}
       >
-        <div className="text-8xl mb-2">{passed ? '🎉' : '😵'}</div>
 
         <h1
-          className="font-game text-white font-bold leading-tight"
+          className="font-game text-white font-bold leading-tight mt-4"
           style={{
             fontSize: 'clamp(1.8rem, 9vw, 3rem)',
             textShadow: '4px 4px 0 rgba(0,0,0,0.3)',
@@ -169,8 +188,61 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
   </>
 )}
       </div>
+      {isEndless && (
+  <div
+  className="relative z-10 w-full max-w-xs rounded-3xl border border-white/15 bg-black/30 px-4 py-3"
+    style={{
+      opacity: visible ? 1 : 0,
+      transition: 'opacity 0.5s ease 0.35s',
+    }}
+  >
+    <div
+      className="mb-2 text-center font-game font-black text-yellow-200"
+      style={{ fontSize: 'clamp(1rem, 4.2vw, 1.2rem)' }}
+    >
+      🏆 TOP ENDLESS ปัจจุบัน
+    </div>
 
+    {loadingEndlessTop ? (
+      <div className="py-2 text-center font-game text-white/50 text-sm">
+        กำลังโหลดอันดับ...
+      </div>
+    ) : endlessTop.length === 0 ? (
+      <div className="py-2 text-center font-game text-white/50 text-sm">
+        ยังไม่มีอันดับ
+      </div>
+    ) : (
+      <div className="flex flex-col gap-1.5">
+        {endlessTop.map((entry, index) => (
+          <div
+            key={`${entry.lineUserId ?? entry.employeeId}-${index}`}
+            className="flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2"
+          >
+            <div className="w-7 text-center font-game font-black text-yellow-200">
+              {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-game font-black text-white text-sm">
+              {entry.employeeId}
+{entry.displayName ? ` · ${entry.displayName}` : ''}
+              </div>
+              <div className="truncate font-game text-white/45 text-xs">
+                {entry.department}
+              </div>
+            </div>
+
+            <div className="font-game font-black text-yellow-300 text-sm">
+              {entry.score.toLocaleString()}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
 <div
+
   className="relative z-10 w-full max-w-xs flex flex-col gap-3"
   style={{
     opacity: visible ? 1 : 0,
@@ -191,7 +263,19 @@ export default function ResultScreen({ result, onRetry, onNext, onHome }: Props)
             ด่านต่อไป →
           </button>
         )}
-
+{isEndless && onLeaderboard && (
+  <button
+    onClick={onLeaderboard}
+    className="w-full py-4 rounded-2xl font-game font-bold active:scale-95 transition-transform text-white"
+    style={{
+      fontSize: 'clamp(1rem, 4.5vw, 1.2rem)',
+      background: 'linear-gradient(135deg, #7c3aed, #4c1d95)',
+      boxShadow: '0 6px 0 #2e1065',
+    }}
+  >
+    Leaderboard
+  </button>
+)}
         <button
           onClick={onRetry}
           className="w-full py-5 rounded-2xl font-game font-bold active:scale-95 transition-transform text-white"

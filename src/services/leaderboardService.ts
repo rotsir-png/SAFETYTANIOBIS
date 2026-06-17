@@ -64,7 +64,7 @@ export async function recordStageClear(
 export async function recordEndlessScore(
   profile: PlayerProfile,
   score: number,
-  survivedTime: number
+  survivedTime = 0
 ): Promise<void> {
   if (!supabase) {
     console.warn('[Leaderboard] Supabase not configured. Endless score not persisted remotely.');
@@ -90,6 +90,7 @@ export async function recordEndlessScore(
 export interface RemoteEndlessEntry {
   lineUserId: string;
   employeeId: string;
+  displayName?: string | null;
   department: string;
   score: number;
   survivedSeconds: number;
@@ -108,8 +109,8 @@ export async function fetchTopEndlessScores(limit = 20): Promise<RemoteEndlessEn
   }
   try {
     const { data, error } = await supabase
-      .from('endless_scores')
-      .select('line_user_id, employee_id, department, score, survived_time')
+    .from('endless_scores_with_names')
+    .select('line_user_id, employee_id, display_name, department, score, survived_time')
       .order('score', { ascending: false })
       .limit(limit * 10);
 
@@ -128,6 +129,7 @@ export async function fetchTopEndlessScores(limit = 20): Promise<RemoteEndlessEn
         best.set(key, {
           lineUserId:      row.line_user_id,
           employeeId:      row.employee_id,
+          displayName:     row.display_name ?? null,
           department:      row.department,
           score:           row.score,
           survivedSeconds: row.survived_time,
