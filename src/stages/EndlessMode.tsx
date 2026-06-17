@@ -363,15 +363,11 @@ function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function pickPriority(shift: number): TaskPriority {
+function pickPriority(): TaskPriority {
   const r = Math.random();
 
-  // Shift สูง = งานแดงเยอะขึ้น
-  const highChance = Math.min(0.5, 0.2 + (shift - 1) * 0.02);
-  const mediumChance = Math.min(0.35, 0.35 + (shift - 1) * 0.01);
-
-  if (r < highChance) return "HIGH";
-  if (r < highChance + mediumChance) return "MEDIUM";
+  if (r < 0.2) return "HIGH";
+  if (r < 0.55) return "MEDIUM";
 
   return "LOW";
 }
@@ -410,7 +406,7 @@ function getEndlessTaskDisplay(type: TaskType) {
 }
 function makeTask(extraTime = 0, shift = 1): Task {
   const base = pick(TASK_BANK);
-  const priority = pickPriority(shift);
+  const priority = pickPriority();
 
   const priorityBonus =
     priority === "HIGH" ? -3 : priority === "MEDIUM" ? -1 : 2;
@@ -419,7 +415,7 @@ function makeTask(extraTime = 0, shift = 1): Task {
   const baseTime = 38;
 const maxTime = Math.max(
   12,
-  baseTime + extraTime + priorityBonus - shiftPenalty * 5 + Math.floor(Math.random() * 5)
+  baseTime + extraTime + priorityBonus - shiftPenalty * 3 + Math.floor(Math.random() * 5)
 );
 
   const display = getEndlessTaskDisplay(base.type);
@@ -541,7 +537,7 @@ window.setTimeout(() => setMistakeFlash(false), 500);
   useEffect(() => {
     if ((phase !== "dashboard" && phase !== "resolve") || doneRef.current) return;
 
-    const spawnMs = Math.max(1200, 2600 - shift * 220 + queueSlow);
+    const spawnMs = Math.max(1200, 2600 - shift * 140 + queueSlow);
 
     const interval = window.setInterval(() => {
       if (pausedRef.current || doneRef.current) return;
