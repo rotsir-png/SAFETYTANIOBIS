@@ -831,7 +831,7 @@ const gained = Math.round(
     }
   
     if (training.id === "SLOW_QUEUE") {
-      setQueueSlow((x) => x + 350);
+      setQueueSlow((x) => Math.min(1200, x + 300));
     }
   
     if (training.id === "EXTRA_TIME") {
@@ -839,7 +839,7 @@ const gained = Math.round(
     }
   
     if (training.id === "DISPATCHER") {
-      setQueueBonus((x) => Math.min(3, x + 1));
+      setQueueBonus((x) => Math.min(2, x + 1));
     }
   
     if (training.id === "RISK_ENGINEER") {
