@@ -73,6 +73,7 @@ type WalkingRequest = {
   choices: string[];
   answer: number;
 };
+
 const MAX_MISTAKES = 5;
 const MAX_SAFETY = 100;
 const SHIFT_EVERY = 10;
@@ -429,7 +430,39 @@ return {
   maxTime,
 };
 }
+function getGameOverDetail(reason: string) {
+  if (reason.includes("งานค้าง")) {
+    return {
+      title: "งานค้างหมดเวลา",
+      detail: "มีงานใน Queue หมดเวลา ทำให้ Mistake เพิ่มครบ 5/5",
+    };
+  }
 
+  if (reason.includes("Queue Overflow")) {
+    return {
+      title: "Queue ล้นต่อเนื่อง",
+      detail: "ปล่อย Queue เต็มต่อเนื่องครบ 3 ครั้ง ทำให้ Mistake เพิ่มครบ 5/5",
+    };
+  }
+
+  if (reason.includes("ตอบผิด")) {
+    return {
+      title: "ตอบผิด",
+      detail: "ตัดสินใจผิดพลาด ทำให้ Mistake เพิ่มครบ 5/5",
+    };
+  }
+
+  return {
+    title: reason || "ความผิดพลาดสะสม",
+    detail: "Mistake สะสมครบ 5/5 ทำให้โรงงานระเบิด",
+  };
+}
+function formatSurviveTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 export default function EndlessMode({ onComplete, onExit }: Props) {
   const [phase, setPhase] = useState<Phase>("intro");
 const [introPage, setIntroPage] = useState(0);
@@ -441,6 +474,8 @@ const [introPage, setIntroPage] = useState(0);
   const [activeSafetySwipeTask, setActiveSafetySwipeTask] = useState(false);
   const [walkingRequest, setWalkingRequest] = useState<WalkingRequest | null>(null);
   const [score, setScore] = useState(0);
+  const [surviveSeconds, setSurviveSeconds] = useState(0);
+const surviveRef = useRef(0);
   const [factorySafety, setFactorySafety] = useState(MAX_SAFETY);
   const [mistakes, setMistakes] = useState(0);
   const [tasksDone, setTasksDone] = useState(0);
@@ -457,10 +492,31 @@ const [introPage, setIntroPage] = useState(0);
   const [queueBonus, setQueueBonus] = useState(0);
 const [riskEngineerLevel, setRiskEngineerLevel] = useState(0);
 const [overflowCount, setOverflowCount] = useState(0);
+const [gameOverCause, setGameOverCause] = useState<{
+  title: string;
+  detail: string;
+} | null>(null);
+const [runOver, setRunOver] = useState(false);
+const queueRef = useRef<Task[]>([]);
+const overflowRef = useRef(0);
+
+useEffect(() => {
+  queueRef.current = queue;
+}, [queue]);
+
+const updateOverflow = (next: number) => {
+  overflowRef.current = next;
+  setOverflowCount(next);
+};
 
   const doneRef = useRef(false);
   const pausedRef = useRef(false);
-
+  const gameOverStartedRef = useRef(false);
+  const mistakesRef = useRef(0);
+  
+  useEffect(() => {
+    mistakesRef.current = mistakes;
+  }, [mistakes]);
   const { paused, togglePause, PauseOverlay } = usePause({
     onGiveUp: () => finishRun(),
   });
@@ -468,6 +524,19 @@ const [overflowCount, setOverflowCount] = useState(0);
   useEffect(() => {
     pausedRef.current = paused;
   }, [paused]);
+  useEffect(() => {
+    if (phase !== "dashboard" && phase !== "resolve") return;
+    if (runOver || doneRef.current) return;
+  
+    const timer = window.setInterval(() => {
+      if (pausedRef.current || runOver || doneRef.current) return;
+  
+      surviveRef.current += 1;
+      setSurviveSeconds(surviveRef.current);
+    }, 1000);
+  
+    return () => window.clearInterval(timer);
+  }, [phase, runOver]);
   // Walking Request disabled for Endless V1.
 // It was too distracting during queue/task gameplay.
 // Keep the state/render code for later, but do not spawn it tonight.
@@ -506,41 +575,56 @@ useEffect(() => {
   };
   const damageFactory = useCallback(
     (amount: number, reason: string) => {
-      if (doneRef.current) return;
+      if (doneRef.current || gameOverStartedRef.current) return;
+  
+      const nextMistakes = Math.min(MAX_MISTAKES, mistakesRef.current + 1);
+      mistakesRef.current = nextMistakes;
   
       setFactorySafety((s) => Math.max(0, s - amount));
       setSafetyFlash(true);
-window.setTimeout(() => setSafetyFlash(false), 450);
-pop(`Mistake +1 / Safety -${amount}%`, "bad");
+      window.setTimeout(() => setSafetyFlash(false), 450);
   
-      setMistakes((m) => {
-        const next = m + 1;
+      pop(`${reason}: Mistake +1`, "bad");
   
-        setScreenShake(true);
-        window.setTimeout(() => setScreenShake(false), 320);
-        setMistakeFlash(true);
-window.setTimeout(() => setMistakeFlash(false), 500);
-        if (next >= MAX_MISTAKES) {
-          pop("โรงงานระเบิด", "bad");
-          setBanner("💥 โรงงานระเบิด! Safety Rating พังแล้ว!");
-          setPhase("gameover");
-          window.setTimeout(() => finishRun(), 900);
-        } else {
-          setBanner(`${reason} -${amount} Safety`);
-        }
-        return Math.min(next, MAX_MISTAKES);
-      });
+      setScreenShake(true);
+      window.setTimeout(() => setScreenShake(false), 320);
+  
+      setMistakeFlash(true);
+      window.setTimeout(() => setMistakeFlash(false), 500);
+  
+      setMistakes(nextMistakes);
+  
+      if (nextMistakes >= MAX_MISTAKES) {
+        gameOverStartedRef.current = true;
+      
+        const cause = getGameOverDetail(reason);
+        setGameOverCause(cause);
+      
+        pop("โรงงานระเบิด", "bad");
+        setBanner(`💥 ! ${cause.title}`);
+      
+        setRunOver(true);
+        setPhase("gameover");
+      
+        return;
+      }
+  
+      setBanner(`${reason} -${amount} Safety`);
     },
     [finishRun]
   );
 
   useEffect(() => {
-    if ((phase !== "dashboard" && phase !== "resolve") || doneRef.current) return;
+    if (
+      (phase !== "dashboard" && phase !== "resolve") ||
+      doneRef.current ||
+      gameOverStartedRef.current
+    ) return;
 
     const spawnMs = Math.max(1200, 2600 - shift * 140 + queueSlow);
 
     const interval = window.setInterval(() => {
-      if (pausedRef.current || doneRef.current) return;
+      if (pausedRef.current || doneRef.current || gameOverStartedRef.current) return;
 
       setQueue((q) => {
         let next = q
@@ -558,47 +642,52 @@ window.setTimeout(() => setMistakeFlash(false), 500);
     }, 1000);
 
     const spawn = window.setInterval(() => {
-      if (pausedRef.current || doneRef.current) return;
-
-      setQueue((q) => {
-        const maxQueue = Math.min(QUEUE_MAX + queueBonus, 4 + Math.floor(shift / 2) + queueBonus);
-      
-        if (q.length >= maxQueue) {
-          setFactorySafety((s) => Math.max(0, s - 2));
-        
-          setOverflowCount((count) => {
-            const next = count + 1;
-        
-            if (next >= 3) {
-              damageFactory(0, "Queue Overflow สะสม");
-        
-              setBanner(
-                "💥 Queue Overflow x3 → Mistake +1"
-              );
-        
-              return 0;
-            }
-        
-            setBanner(
-              `⚠️ Queue เต็ม! (${next}/3) / Safety -2`
-            );
-        
-            return next;
-          });
-        
-          return q;
+      if (pausedRef.current || doneRef.current || gameOverStartedRef.current) return;
+    
+      const currentQueue = queueRef.current;
+      const maxQueue = Math.min(
+        QUEUE_MAX + queueBonus,
+        4 + Math.floor(shift / 2) + queueBonus
+      );
+    
+      if (currentQueue.length >= maxQueue) {
+        const next = overflowRef.current + 1;
+    
+        if (next === 1) {
+          updateOverflow(1);
+          setBanner("⚠️ Queue เต็มแล้ว! รีบเคลียร์งาน (1/3)");
+          return;
         }
-      
-        const newTask = makeTask(extraTime, shift);
-
-if (newTask.priority === "HIGH" && riskEngineerLevel > 0) {
-  const bonus = riskEngineerLevel * 2;
-  newTask.timeLeft += bonus;
-  newTask.maxTime += bonus;
-}
-
-return [...q, newTask];
-      });
+    
+        if (next === 2) {
+          updateOverflow(2);
+          setFactorySafety((s) => Math.max(0, s - 2));
+          setBanner("⚠️ Queue เต็มต่อเนื่อง! (2/3) / Safety -2");
+          return;
+        }
+    
+        updateOverflow(0);
+        setFactorySafety((s) => Math.max(0, s - 2));
+        damageFactory(0, "Queue Overflow ต่อเนื่อง");
+        setBanner("💥 Queue Overflow 3/3 → Mistake +1");
+        return;
+      }
+    
+      if (overflowRef.current !== 0) {
+        updateOverflow(0);
+      }
+    
+      const newTask = makeTask(extraTime, shift);
+    
+      if (newTask.priority === "HIGH" && riskEngineerLevel > 0) {
+        const bonus = riskEngineerLevel * 2;
+        newTask.timeLeft += bonus;
+        newTask.maxTime += bonus;
+      }
+    
+      const nextQueue = [...currentQueue, newTask];
+      queueRef.current = nextQueue;
+      setQueue(nextQueue);
     }, spawnMs);
 
     return () => {
@@ -974,7 +1063,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
     onSkip={() => setPhase("dashboard")}
   />
 )}
-{phase === "dashboard" && (
+{phase === "dashboard" && !runOver && (
   <div className="relative z-10 px-4 pt-3 pb-2">
     <div className="flex items-center justify-between">
       <div>
@@ -1054,10 +1143,11 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
   }`}
 >
         
-        {phase === "dashboard" && (
+        {phase === "dashboard" && !runOver && (
           <Dashboard
           queue={queue}
           maxQueue={Math.min(QUEUE_MAX + queueBonus, 4 + Math.floor(shift / 2) + queueBonus)}
+          overflowCount={overflowCount}
           walkingRequest={walkingRequest}
           onOpen={openTask}
           onAnswerWalkingRequest={answerWalkingRequest}
@@ -1074,7 +1164,7 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
           : "border-white/20 bg-black/45 text-white"
       }`}
     >
-      <span>⏰ Mistake in</span>
+      <span>⏰ งานค้างจะเพิ่ม Mistake ใน</span>
       <span>{Math.ceil(Math.min(...queue.map((t) => t.timeLeft)))}s</span>
     </div>
   </div>
@@ -1187,17 +1277,63 @@ setBanner(`✅ ${walkingRequest.icon} ตอบไวมาก! +${gained}`);
           <TrainingSelect choices={trainingChoices} onChoose={chooseTraining} />
         )}
 
-        {phase === "gameover" && (
-          <div className="flex h-full items-center justify-center text-center">
-            <div className="rounded-[32px] border-4 border-red-500 bg-black/80 p-6">
-              <div className="text-7xl">💥</div>
-              <div className="font-game font-black text-red-400 text-[clamp(2rem,9vw,3rem)]">
-                FACTORY BOOM
-              </div>
-              <div className="font-game text-white">พลาดครบ 5 ครั้ง</div>
-            </div>
-          </div>
-        )}
+{runOver && (
+  <div className="flex h-full items-center justify-center px-4 text-center">
+    <div className="w-full max-w-sm rounded-[32px] border-4 border-red-500 bg-black/85 p-5 shadow-[0_0_30px_rgba(239,68,68,0.45)]">
+      <div className="text-7xl">💥</div>
+
+      <div className="font-game font-black text-red-400 text-[clamp(2rem,9vw,3rem)]">
+        โรงงานระเบิด
+      </div>
+
+      <div className="font-game text-white">
+        Mistake ครบ {MAX_MISTAKES}/{MAX_MISTAKES}
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-red-400/40 bg-red-950/60 px-4 py-3">
+        <div className="font-game font-black text-red-300 text-[clamp(1rem,4.5vw,1.25rem)]">
+          สาเหตุ Game Over:
+        </div>
+
+        <div className="mt-1 font-game font-black text-white text-[clamp(1.15rem,5vw,1.45rem)]">
+          {gameOverCause?.title || "ความผิดพลาดสะสม"}
+        </div>
+
+        <div className="mt-2 font-game text-white/75 text-sm leading-relaxed">
+          {gameOverCause?.detail ||
+            "Mistake สะสมครบ 5/5 ทำให้เกิด Factory Boom"}
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-2 font-game">
+        <div className="rounded-xl bg-white/10 px-2 py-2">
+          <div className="text-white/40 text-[10px]">SAFETY</div>
+          <div className="font-black text-white">{factorySafety}%</div>
+        </div>
+
+        <div className="rounded-xl bg-white/10 px-2 py-2">
+          <div className="text-white/40 text-[10px]">Cleared</div>
+          <div className="font-black text-white">{tasksDone}</div>
+        </div>
+
+        <div className="rounded-xl bg-white/10 px-2 py-2">
+        <div className="text-white/40 text-[10px]">SURVIVED</div>
+<div className="font-black text-white">
+  {formatSurviveTime(surviveSeconds)}
+</div>
+        </div>
+      </div>
+
+      <button
+        onClick={finishRun}
+        className="mt-4 w-full rounded-2xl border-2 border-yellow-300 bg-yellow-300 px-4 py-3 font-game font-black text-slate-950 active:scale-95"
+        style={{ fontSize: "clamp(1rem, 4.5vw, 1.25rem)" }}
+      >
+        ดูสรุปคะแนน
+      </button>
+    </div>
+  </div>
+)}
       </div>
       <ScorePopupLayer popups={popups} />
       {PauseOverlay}
@@ -1419,12 +1555,14 @@ function MistakeHud({
 function Dashboard({
   queue,
   maxQueue,
+  overflowCount,
   walkingRequest,
   onOpen,
   onAnswerWalkingRequest,
 }: {
   queue: Task[];
   maxQueue: number;
+  overflowCount: number;
   walkingRequest: WalkingRequest | null;
   onOpen: (task: Task) => void;
   onAnswerWalkingRequest: (index: number) => void;
@@ -1483,6 +1621,11 @@ const queueStatus =
     >
       {queueStatus}
     </div>
+    {overflowCount > 0 && (
+  <div className="mt-1 font-game font-black text-red-300 text-[10px] animate-pulse">
+    OVERFLOW {overflowCount}/3
+  </div>
+)}
   </div>
 </div>
 
