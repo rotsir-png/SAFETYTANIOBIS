@@ -6,6 +6,14 @@ The project combines **React / TypeScript frontend development**, **LINE LIFF id
 
 > **Portfolio note:** The original LINE OA environment is no longer active. This repository is maintained as a source-code portfolio. The application also contains a development fallback mode when LINE LIFF or Supabase environment variables are not configured.
 
+## Project Screenshot
+
+Below is an in-project visual asset from the Endless Mode dashboard used in the game UI:
+
+![TANIOBIS Endless Mode Dashboard](public/assets/endless/endless-dashboard-guide.png)
+
+Additional screenshots from the original project are preserved separately from the source repository.
+
 ## Tech Stack
 
 - **Frontend:** React, TypeScript, Tailwind CSS, Vite
